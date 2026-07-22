@@ -1,10 +1,10 @@
 const today = new Date();
 const isoToday = toDateInput(today);
 
-const STORAGE_KEY = "gap-navbati-queues";
 const AUTO_COMPLETE_INTERVAL_MS = 1000;
 
 let queues = [];
+let memoryQueues = [];
 let queueFilter = "all";
 let queueQuery = "";
 let historyQuery = "";
@@ -220,9 +220,8 @@ async function handleSubmit(event) {
     } else {
       const created = await createQueue(item);
       queues.unshift(created);
-      showToast(
-        "Navbat saqlandi. 4 xonali kodingizni eslab qoling.",
-        "success",
+      window.alert(
+        `Navbat saqlandi.\n4 xonali son: ${item.secretCode}\nEslab qoling, o'zgartirish yoki o'chirishda kerak bo'ladi.`,
       );
     }
 
@@ -856,14 +855,11 @@ async function removeQueue(id) {
 }
 
 function readStoredQueues() {
-  const saved = window.localStorage.getItem(STORAGE_KEY);
-  if (!saved) return [];
-  const parsed = JSON.parse(saved);
-  return Array.isArray(parsed) ? parsed.map(normalizeQueue) : [];
+  return memoryQueues.map(normalizeQueue);
 }
 
 function writeStoredQueues(items) {
-  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+  memoryQueues = items.map(normalizeQueue);
 }
 
 function completeExpiredQueue(item) {
