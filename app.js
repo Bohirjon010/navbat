@@ -867,7 +867,7 @@ function writeStoredQueues(items) {
 }
 
 function completeExpiredQueue(item) {
-  if (item.status === "active" && getQueueDateTime(item) <= new Date()) {
+  if (item.status === "active" && isQueueTimePassed(item)) {
     return { ...item, status: "done" };
   }
 
@@ -980,10 +980,15 @@ function parseLocalDate(value) {
   return new Date(year, month - 1, day);
 }
 
-function getQueueDateTime(item) {
+function isQueueTimePassed(item, now = new Date()) {
   const [year, month, day] = item.date.split("-").map(Number);
   const [hours = 0, minutes = 0] = item.time.split(":").map(Number);
-  return new Date(year, month - 1, day, hours, minutes);
+
+  if (now.getFullYear() !== year) return now.getFullYear() > year;
+  if (now.getMonth() + 1 !== month) return now.getMonth() + 1 > month;
+  if (now.getDate() !== day) return now.getDate() > day;
+  if (now.getHours() !== hours) return now.getHours() > hours;
+  return now.getMinutes() >= minutes;
 }
 
 function addDays(date, days) {
