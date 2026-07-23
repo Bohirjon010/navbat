@@ -321,23 +321,18 @@ label svg {
   min-width: 0;
 }
 
-body.admin-mode .nav-links a[href="#home"],
-body.admin-mode .nav-links a[href="#queues"],
-body.admin-mode .nav-links a[href="#contact"],
+.admin-nav-link,
+body.admin-mode .user-nav-link,
 body.admin-mode .nav-actions > a.primary-button {
   display: none;
 }
 
-body.admin-mode .nav-links a[href="#history"] {
-  display: none;
+body.admin-mode .admin-nav-link {
+  display: inline-flex;
 }
 
-body.admin-mode .nav-links::before {
-  content: "Admin Panel";
-  color: var(--muted);
-  font-size: 14px;
-  font-weight: 800;
-  padding: 10px 12px;
+body.admin-mode .nav-links a.active::after {
+  display: none;
 }
 
 .icon-button {

@@ -713,6 +713,7 @@ function selectRole(role) {
   document.body.classList.toggle("user-mode", role === "user");
   els.roleSwitch.querySelector("span").textContent =
     role === "admin" ? "Admin chiqish" : "Chiqish";
+  updateActiveMenu(role === "admin" ? "#adminHome" : "#home");
   render();
 }
 
@@ -766,10 +767,17 @@ function updateActiveMenu(forcedHash) {
   const menuLinks = Array.from(
     document.querySelectorAll(".nav-links a, .nav-actions a"),
   );
-  const hashes = menuLinks
+  const isAdminMode = document.body.classList.contains("admin-mode");
+  const scopedLinks = menuLinks.filter((link) => {
+    if (link.classList.contains("admin-nav-link")) return isAdminMode;
+    if (link.classList.contains("user-nav-link")) return !isAdminMode;
+    return !isAdminMode;
+  });
+  const hashes = scopedLinks
     .map((link) => link.getAttribute("href"))
     .filter((href) => href && href.startsWith("#"));
-  const activeHash = forcedHash || getActiveSectionHash(hashes);
+  const fallbackHash = isAdminMode ? "#adminHome" : "#home";
+  const activeHash = forcedHash || getActiveSectionHash(hashes) || fallbackHash;
 
   menuLinks.forEach((link) => {
     const isActive = link.getAttribute("href") === activeHash;
