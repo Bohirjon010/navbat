@@ -318,6 +318,7 @@ label svg {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
 }
 
 body.admin-mode .nav-links a[href="#home"],
@@ -367,6 +368,7 @@ body.admin-mode .nav-links::before {
   padding: 0 18px;
   cursor: pointer;
   font-weight: 800;
+  white-space: nowrap;
   transition:
     transform 0.2s ease,
     box-shadow 0.2s ease,
@@ -870,6 +872,7 @@ select:focus {
 
 .history-table {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -1147,9 +1150,30 @@ th {
   }
 }
 
+@media (max-width: 1100px) {
+  .nav-shell {
+    gap: 14px;
+  }
+
+  .nav-links {
+    gap: 4px;
+  }
+
+  .nav-links a,
+  .footer-links a,
+  .social-links a {
+    padding-inline: 10px;
+  }
+
+  .hero {
+    grid-template-columns: minmax(0, 1fr) minmax(300px, 0.9fr);
+    gap: 30px;
+  }
+}
+
 @media (max-width: 900px) {
   .nav-shell {
-    grid-template-columns: auto auto auto;
+    grid-template-columns: auto 1fr auto;
   }
 
   .mobile-menu-toggle {
@@ -1175,6 +1199,20 @@ th {
     display: flex;
   }
 
+  .nav-links a {
+    width: 100%;
+    padding: 13px 14px;
+  }
+
+  .nav-links a.active::after,
+  .nav-actions a.active::after {
+    display: none;
+  }
+
+  .nav-actions {
+    justify-self: end;
+  }
+
   .nav-actions .primary-button span {
     display: none;
   }
@@ -1198,6 +1236,68 @@ th {
     align-items: stretch;
     flex-direction: column;
   }
+
+  .filters {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .filter-button {
+    min-height: 44px;
+    padding-inline: 10px;
+  }
+}
+
+@media (max-width: 760px) {
+  .site-header {
+    position: sticky;
+  }
+
+  .nav-shell {
+    min-height: 68px;
+    grid-template-columns: auto auto auto;
+  }
+
+  .nav-links {
+    top: 68px;
+  }
+
+  .brand {
+    min-width: 0;
+  }
+
+  .brand span:last-child {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .role-switch span {
+    display: none;
+  }
+
+  .hero-visual {
+    min-height: auto;
+  }
+
+  .preview-panel {
+    width: 100%;
+    padding: 18px;
+  }
+
+  .hero-stat-card {
+    min-height: 116px;
+    padding: 16px;
+  }
+
+  .hero-stat-card strong,
+  .stat-card strong {
+    font-size: 32px;
+  }
+
+  .contact-card .primary-button {
+    width: 100%;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1212,12 +1312,28 @@ th {
     padding: 52px 0;
   }
 
+  .brand-mark,
+  .icon-button {
+    width: 40px;
+    height: 40px;
+    border-radius: 14px;
+  }
+
   .brand span:last-child {
-    max-width: 120px;
+    max-width: 112px;
   }
 
   .nav-actions {
     gap: 7px;
+  }
+
+  .nav-actions .primary-button,
+  .role-switch {
+    width: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    padding: 0;
+    border-radius: 14px;
   }
 
   .hero {
@@ -1225,7 +1341,13 @@ th {
   }
 
   h1 {
-    font-size: 50px;
+    font-size: clamp(42px, 14vw, 54px);
+    line-height: 1;
+    overflow-wrap: anywhere;
+  }
+
+  h2 {
+    font-size: clamp(28px, 9vw, 38px);
   }
 
   .hero-copy > p:not(.eyebrow),
@@ -1237,6 +1359,12 @@ th {
   .primary-button.large,
   .ghost-button.large {
     width: 100%;
+  }
+
+  .primary-button.large,
+  .ghost-button.large,
+  .save-button {
+    min-height: 50px;
   }
 
   .latest-grid,
@@ -1257,6 +1385,62 @@ th {
     transform: none;
   }
 
+  .hero-stats {
+    gap: 10px;
+  }
+
+  .hero-stat-card {
+    border-radius: 16px;
+  }
+
+  .hero-stat-card span,
+  .stat-card span {
+    font-size: 13px;
+  }
+
+  .queue-form,
+  .toolbar,
+  .history-table,
+  .contact-card,
+  .latest-card,
+  .queue-card {
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  .filters {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  input,
+  textarea,
+  select {
+    border-radius: 14px;
+    padding: 13px 14px;
+  }
+
+  .search-box input {
+    padding-left: 44px;
+  }
+
+  .person-title {
+    font-size: 18px;
+    line-height: 1.25;
+  }
+
+  .meta {
+    align-items: flex-start;
+    overflow-wrap: anywhere;
+  }
+
+  .user-admin-note {
+    grid-template-columns: auto 1fr;
+  }
+
+  .user-admin-note a {
+    grid-column: 2;
+  }
+
   .footer-inner {
     align-items: flex-start;
     flex-direction: column;
@@ -1264,5 +1448,64 @@ th {
 
   .detail-item {
     grid-template-columns: 1fr;
+  }
+
+  .detail-card {
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    padding: 22px;
+  }
+}
+
+@media (max-width: 460px) {
+  .nav-shell,
+  .section,
+  .footer-inner,
+  .footer > p {
+    width: min(100% - 16px, 1180px);
+  }
+
+  .nav-shell {
+    gap: 8px;
+  }
+
+  .brand span:last-child {
+    max-width: 96px;
+  }
+
+  .hero-actions {
+    gap: 10px;
+  }
+
+  .hero-stats,
+  .filters {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-stat-card {
+    min-height: 96px;
+  }
+
+  .role-panel {
+    border-radius: 16px;
+    padding: 22px;
+  }
+
+  .role-card {
+    min-height: 150px;
+    border-radius: 16px;
+  }
+
+  .role-card span {
+    font-size: 20px;
+  }
+
+  .admin-form-actions {
+    gap: 10px;
+  }
+
+  th,
+  td {
+    padding: 12px 10px;
   }
 }
