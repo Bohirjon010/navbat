@@ -1,0 +1,573 @@
+<!doctype html>
+<html lang="uz">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Gap Navbati</title>
+    <link rel="icon" type="image/svg+xml" href="./image.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="loader" id="loader" aria-label="Yuklanmoqda">
+      <span></span>
+      <span></span>
+      <span></span>
+    </div>
+
+    <section class="role-gate" id="roleGate" aria-labelledby="roleTitle">
+      <div class="role-panel glass">
+        <p class="eyebrow">Kirish bo'limi</p>
+        <h1 id="roleTitle" style="margin-bottom: 40px">Gap Navbati</h1>
+        <div class="role-grid">
+          <button class="role-card" data-role="admin" type="button">
+            <i data-lucide="shield-check"></i>
+            <span>Admin</span>
+          </button>
+          <button class="role-card" data-role="user" type="button">
+            <i data-lucide="user-round"></i>
+            <span>Foydalanuvchi</span>
+          </button>
+        </div>
+        <form class="admin-login" id="adminLoginForm" hidden>
+          <label>
+            <span><i data-lucide="user-cog"></i> Login</span>
+            <input
+              id="adminLogin"
+              type="text"
+              placeholder="Login"
+              autocomplete="username"
+              required
+            />
+          </label>
+          <label>
+            <span><i data-lucide="lock-keyhole"></i> Parol</span>
+            <input
+              id="adminPassword"
+              type="password"
+              placeholder="Parol"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <div class="admin-form-actions">
+            <button class="primary-button save-button" type="submit">
+              <i data-lucide="log-in"></i>
+              <span>Kirish</span>
+            </button>
+            <button
+              class="ghost-button save-button"
+              id="adminLoginCancel"
+              type="button"
+            >
+              <i data-lucide="arrow-left"></i>
+              <span>Orqaga</span>
+            </button>
+          </div>
+        </form>
+      </div>
+    </section>
+
+    <header class="site-header">
+      <nav class="nav-shell" aria-label="Asosiy menyu">
+        <a class="brand" href="#home" aria-label="Gap Navbati bosh sahifa">
+          <span class="brand-mark"><i data-lucide="messages-square"></i></span>
+          <span>Gap Navbati</span>
+        </a>
+
+        <button
+          class="icon-button mobile-menu-toggle"
+          id="menuToggle"
+          type="button"
+          aria-label="Menyuni ochish"
+        >
+          <i data-lucide="menu"></i>
+        </button>
+
+        <div class="nav-links" id="navLinks">
+          <a class="user-nav-link" href="#home">Bosh sahifa</a>
+          <a class="user-nav-link" href="#queues">Navbatlar</a>
+          <a class="user-nav-link" href="#history">Tarixlar</a>
+          <a class="user-nav-link" href="#contact">Aloqa</a>
+          <a class="admin-nav-link" href="#adminHome">Boshqaruv</a>
+          <a class="admin-nav-link" href="#adminQueues">Navbatlar</a>
+          <a class="admin-nav-link" href="#adminHistory">Tarix</a>
+        </div>
+
+        <div class="nav-actions">
+          <button
+            class="icon-button"
+            id="themeToggle"
+            type="button"
+            aria-label="Kun yoki tun rejimi"
+          >
+            <i data-lucide="moon"></i>
+          </button>
+          <button
+            class="ghost-button role-switch"
+            id="roleSwitch"
+            type="button"
+          >
+            <i data-lucide="log-out"></i>
+            <span>Chiqish</span>
+          </button>
+          <a class="primary-button" href="#add">
+            <i data-lucide="circle-plus"></i>
+            <span>Navbat Qo'shish</span>
+          </a>
+        </div>
+      </nav>
+    </header>
+
+    <main id="userApp">
+      <section class="hero section" id="home">
+        <div class="hero-copy reveal">
+          <p class="eyebrow">Navbatlarni boshqaruvi</p>
+          <h1>Gap Navbati</h1>
+          <p>
+            Navbatlarni oson saqlang, Yeg'ilishlarni rejalashtiring va barcha
+            ma'lumotlarni xavfsiz saqlang.
+          </p>
+          <div class="hero-actions">
+            <a class="primary-button large" href="#add">
+              <i data-lucide="calendar-plus"></i>
+              <span>Navbat qo'shish</span>
+            </a>
+            <a class="ghost-button large" href="#queues">
+              <i data-lucide="list-checks"></i>
+              <span>Navbatlarni ko'rish</span>
+            </a>
+          </div>
+        </div>
+
+        <div class="hero-visual reveal" aria-label="Dashboard ko'rinishi">
+          <div class="orb orb-one"></div>
+          <div class="orb orb-two"></div>
+          <div class="preview-panel">
+            <div class="hero-stats">
+              <article class="hero-stat-card">
+                <i data-lucide="users"></i>
+                <span>Jami navbat</span>
+                <strong id="heroTotalCount">0</strong>
+              </article>
+              <article class="hero-stat-card">
+                <i data-lucide="activity"></i>
+                <span>Faol</span>
+                <strong id="heroActiveCount">0</strong>
+              </article>
+              <article class="hero-stat-card">
+                <i data-lucide="check-circle-2"></i>
+                <span>Tugallangan</span>
+                <strong id="heroDoneCount">0</strong>
+              </article>
+              <article class="hero-stat-card">
+                <i data-lucide="x-circle"></i>
+                <span>Bekor qilingan</span>
+                <strong id="heroCancelledCount">0</strong>
+              </article>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="section" aria-labelledby="latestTitle">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Tezkor ko'rinish</p>
+          <h2 id="latestTitle">Oxirgi qo'shilgan navbat</h2>
+        </div>
+        <div class="latest-grid" id="latestGrid"></div>
+      </section>
+
+      <section class="section add-section" id="add" aria-labelledby="addTitle">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Yangi uchrashuv</p>
+          <h2 id="addTitle">Navbat Qo'shish</h2>
+        </div>
+        <form class="queue-form glass reveal" id="queueForm">
+          <input type="hidden" id="queueId" />
+          <div class="form-grid">
+            <label>
+              <span><i data-lucide="user"></i> Ism</span>
+              <input
+                id="firstName"
+                type="text"
+                placeholder="Bohirjon"
+                required
+              />
+            </label>
+            <label>
+              <span><i data-lucide="user-round"></i> Familya</span>
+              <input id="lastName" type="text" placeholder="Akramov" required />
+            </label>
+            <label>
+              <span><i data-lucide="phone"></i> Telefon raqam</span>
+              <input
+                id="phone"
+                type="tel"
+                placeholder="+998 93 257 20 87"
+                required
+              />
+            </label>
+            <label>
+              <span><i data-lucide="key-round"></i> 4 xonali kod</span>
+              <input
+                id="secretCode"
+                type="text"
+                inputmode="numeric"
+                maxlength="4"
+                pattern="[0-9]{4}"
+                placeholder="****"
+                required
+              />
+              <small class="field-help">
+                Eslab qoling: bu son navbatni o'zgartirish yoki o'chirishda
+                kerak bo'ladi.
+              </small>
+            </label>
+            <label>
+              <span><i data-lucide="map-pin"></i> Lokatsiya</span>
+              <input
+                id="location"
+                type="text"
+                placeholder="Beshariq"
+                required
+              />
+            </label>
+            <label>
+              <span><i data-lucide="calendar-days"></i> Sana</span>
+              <input id="date" type="date" required />
+            </label>
+            <label>
+              <span><i data-lucide="clock-3"></i> Soat</span>
+              <input id="time" type="time" required />
+            </label>
+            <label class="wide">
+              <span><i data-lucide="notebook-pen"></i> Izoh</span>
+              <textarea
+                id="note"
+                rows="4"
+                placeholder="Qisqa izoh yozing"
+              ></textarea>
+            </label>
+          </div>
+          <button class="primary-button save-button" type="submit">
+            <i data-lucide="save"></i>
+            <span>Navbatni Saqlash</span>
+          </button>
+        </form>
+      </section>
+
+      <section class="section" id="queues" aria-labelledby="queuesTitle">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Barcha rejalar</p>
+          <h2 id="queuesTitle">Navbatlar</h2>
+        </div>
+        <div class="toolbar glass reveal">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input
+              id="queueSearch"
+              type="search"
+              placeholder="Ism, telefon yoki lokatsiya..."
+            />
+          </label>
+          <div class="filters" aria-label="Navbat filterlari">
+            <button
+              class="filter-button active"
+              data-filter="all"
+              type="button"
+            >
+              Hammasi
+            </button>
+            <button class="filter-button" data-filter="today" type="button">
+              Bugungi
+            </button>
+            <button class="filter-button" data-filter="tomorrow" type="button">
+              Ertangi
+            </button>
+            <button class="filter-button" data-filter="week" type="button">
+              Shu hafta
+            </button>
+            <button class="filter-button" data-filter="month" type="button">
+              Shu oy
+            </button>
+          </div>
+        </div>
+        <div class="queue-grid" id="queueGrid"></div>
+      </section>
+
+      <section class="section" id="history" aria-labelledby="historyTitle">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Arxiv va holatlar</p>
+          <h2 id="historyTitle">Tarixlar</h2>
+        </div>
+        <div class="toolbar glass reveal">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input
+              id="historySearch"
+              type="search"
+              placeholder="Tarixlardan qidirish..."
+            />
+          </label>
+          <select id="statusFilter" aria-label="Holat bo'yicha filter">
+            <option value="all">Barcha holatlar</option>
+            <option value="active">Faol</option>
+            <option value="done">Tugallangan</option>
+            <option value="cancelled">Bekor qilingan</option>
+          </select>
+        </div>
+        <div class="history-table glass reveal">
+          <table>
+            <thead>
+              <tr>
+                <th>Ism</th>
+                <th>Familya</th>
+                <th>Telefon</th>
+                <th>Lokatsiya</th>
+                <th>Sana</th>
+                <th>Soat</th>
+                <th>Holati</th>
+                <th>Sabab</th>
+              </tr>
+            </thead>
+            <tbody id="historyBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section" id="contact" aria-labelledby="contactTitle">
+        <div class="section-heading reveal">
+          <p class="eyebrow">Bog'lanish</p>
+          <h2 id="contactTitle">Aloqa</h2>
+        </div>
+        <div class="contact-grid">
+          <article class="contact-card glass reveal">
+            <i data-lucide="send"></i>
+            <h3>Telegram</h3>
+            <p>Admin</p>
+            <a
+              class="primary-button"
+              href="https://t.me/akramov_lvl"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <span>Telegram orqali bog'lanish</span>
+            </a>
+          </article>
+          <article class="contact-card glass reveal">
+            <i data-lucide="phone-call"></i>
+            <h3>Telefon</h3>
+            <p>+998 93 257 20 87</p>
+            <a class="primary-button" href="tel:+998 93 257 20 87">
+              <span>Qo'ng'iroq qilish</span>
+            </a>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <main class="admin-app" id="adminApp">
+      <section class="section admin-hero" id="adminHome">
+        <div class="section-heading reveal visible">
+          <p class="eyebrow">Admin boshqaruvi</p>
+          <h1>Admin Panel</h1>
+          <p>
+            Navbatlarni nazorat qiling, tahrirlang, o'chiring va tarix
+            holatlarini kuzating.
+          </p>
+        </div>
+        <div class="admin-stats">
+          <article class="stat-card glass">
+            <i data-lucide="users"></i>
+            <span>Jami navbat</span>
+            <strong id="totalCount">0</strong>
+          </article>
+          <article class="stat-card glass">
+            <i data-lucide="activity"></i>
+            <span>Faol</span>
+            <strong id="activeCount">0</strong>
+          </article>
+          <article class="stat-card glass">
+            <i data-lucide="check-circle-2"></i>
+            <span>Tugallangan</span>
+            <strong id="doneCount">0</strong>
+          </article>
+          <article class="stat-card glass">
+            <i data-lucide="x-circle"></i>
+            <span>Bekor qilingan</span>
+            <strong id="cancelledCount">0</strong>
+          </article>
+        </div>
+      </section>
+
+      <section
+        class="section"
+        id="adminQueues"
+        aria-labelledby="adminQueuesTitle"
+      >
+        <div class="section-heading reveal visible">
+          <p class="eyebrow">Admin amallari</p>
+          <h2 id="adminQueuesTitle">Navbatlarni boshqarish</h2>
+        </div>
+        <div class="toolbar glass reveal visible">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input
+              id="adminSearch"
+              type="search"
+              placeholder="Admin qidiruvi..."
+            />
+          </label>
+        </div>
+        <form
+          class="queue-form glass admin-edit-form"
+          id="adminEditForm"
+          hidden
+        >
+          <input type="hidden" id="adminQueueId" />
+          <div class="form-grid">
+            <label>
+              <span><i data-lucide="user"></i> Ism</span>
+              <input id="adminFirstName" type="text" required />
+            </label>
+            <label>
+              <span><i data-lucide="user-round"></i> Familya</span>
+              <input id="adminLastName" type="text" required />
+            </label>
+            <label>
+              <span><i data-lucide="phone"></i> Telefon</span>
+              <input id="adminPhone" type="tel" required />
+            </label>
+            <label>
+              <span><i data-lucide="key-round"></i> 4 xonali kod</span>
+              <input
+                id="adminSecretCode"
+                type="text"
+                inputmode="numeric"
+                maxlength="4"
+                pattern="[0-9]{4}"
+                required
+              />
+            </label>
+            <label>
+              <span><i data-lucide="map-pin"></i> Lokatsiya</span>
+              <input id="adminLocation" type="text" required />
+            </label>
+            <label>
+              <span><i data-lucide="calendar-days"></i> Sana</span>
+              <input id="adminDate" type="date" required />
+            </label>
+            <label>
+              <span><i data-lucide="clock-3"></i> Soat</span>
+              <input id="adminTime" type="time" required />
+            </label>
+            <label class="wide">
+              <span><i data-lucide="notebook-pen"></i> Izoh(ixtiyoriy)</span>
+              <textarea id="adminNote" rows="3"></textarea>
+            </label>
+          </div>
+          <div class="admin-form-actions">
+            <button class="primary-button save-button" type="submit">
+              <i data-lucide="save"></i>
+              <span>O'zgarishni saqlash</span>
+            </button>
+            <button
+              class="ghost-button save-button"
+              id="adminCancelEdit"
+              type="button"
+            >
+              <i data-lucide="x"></i>
+              <span>Bekor qilish</span>
+            </button>
+          </div>
+        </form>
+        <div class="queue-grid" id="adminGrid"></div>
+      </section>
+
+      <section
+        class="section"
+        id="adminHistory"
+        aria-labelledby="adminHistoryTitle"
+      >
+        <div class="section-heading reveal visible">
+          <p class="eyebrow">Admin arxivi</p>
+          <h2 id="adminHistoryTitle">Tarix</h2>
+        </div>
+        <div class="history-table glass reveal visible">
+          <table>
+            <thead>
+              <tr>
+                <th>Ism</th>
+                <th>Familya</th>
+                <th>Telefon</th>
+                <th>Kod</th>
+                <th>Lokatsiya</th>
+                <th>Sana</th>
+                <th>Soat</th>
+                <th>Holati</th>
+                <th>Sabab</th>
+                <th>Amal</th>
+              </tr>
+            </thead>
+            <tbody id="adminHistoryBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        <a class="brand" href="#home">
+          <span class="brand-mark"><i data-lucide="messages-square"></i></span>
+          <span>Gap Navbati</span>
+        </a>
+        <div class="footer-links">
+          <a href="#home">Bosh sahifa</a>
+          <a href="#queues">Navbatlar</a>
+          <a href="#history">Tarixlar</a>
+          <a href="#contact">Aloqa</a>
+        </div>
+        <div class="social-links">
+          <a href="https://t.me/akramov_lvl" target="_blank" rel="noreferrer"
+            >Telegram</a
+          >
+          <a href="tel:+998 93 257 20 87">Telefon</a>
+        </div>
+      </div>
+      <p>© 2026 Gap Navbati. Barcha huquqlar himoyalangan.</p>
+    </footer>
+
+    <div class="detail-modal" id="detailModal" aria-hidden="true">
+      <div class="detail-backdrop" data-close-detail></div>
+      <article
+        class="detail-card glass"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="detailTitle"
+      >
+        <button
+          class="icon-button detail-close"
+          type="button"
+          aria-label="Yopish"
+          data-close-detail
+        >
+          <i data-lucide="x"></i>
+        </button>
+        <p class="eyebrow">Navbat ma'lumotlari</p>
+        <h2 id="detailTitle">Batafsil</h2>
+        <div class="detail-list" id="detailList"></div>
+      </article>
+    </div>
+
+    <div class="toast-stack" id="toastStack" aria-live="polite"></div>
+
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+    <script src="app.js"></script>
+  </body>
+</html>

@@ -2,9 +2,13 @@ const today = new Date();
 const isoToday = toDateInput(today);
 
 const AUTO_COMPLETE_INTERVAL_MS = 1000;
+const PB_API_BASE =
+  window.location.protocol === "http:" || window.location.protocol === "https:"
+    ? window.location.origin
+    : "http://127.0.0.1:8090";
+const QUEUES_ENDPOINT = `${PB_API_BASE}/api/collections/queues/records`;
 
 let queues = [];
-let memoryQueues = [];
 let queueFilter = "all";
 let queueQuery = "";
 let historyQuery = "";
@@ -832,7 +836,11 @@ async function refreshQueues() {
 }
 
 async function loadQueues() {
-  return readStoredQueues().sort(
+  const response = await pbRequest(
+    `${QUEUES_ENDPOINT}?perPage=500&sort=-createdAt`,
+  );
+
+  return response.items.map(normalizeQueue).sort(
     (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
   );
 }
@@ -841,33 +849,33 @@ async function createQueue(item) {
   const created = completeExpiredQueue(
     normalizeQueue({
       ...item,
-      id: createId(),
       createdAt: new Date().toISOString(),
     }),
   );
-  writeStoredQueues([created, ...readStoredQueues()]);
-  return created;
+
+  return normalizeQueue(
+    await pbRequest(QUEUES_ENDPOINT, {
+      method: "POST",
+      body: JSON.stringify(created),
+    }),
+  );
 }
 
 async function updateQueue(id, item) {
   const updated = completeExpiredQueue(normalizeQueue({ ...item, id }));
-  const saved = readStoredQueues().map((queue) =>
-    queue.id === id ? updated : queue,
+
+  return normalizeQueue(
+    await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: JSON.stringify(updated),
+    }),
   );
-  writeStoredQueues(saved);
-  return updated;
 }
 
 async function removeQueue(id) {
-  writeStoredQueues(readStoredQueues().filter((queue) => queue.id !== id));
-}
-
-function readStoredQueues() {
-  return memoryQueues.map(normalizeQueue);
-}
-
-function writeStoredQueues(items) {
-  memoryQueues = items.map(normalizeQueue);
+  await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+  });
 }
 
 function completeExpiredQueue(item) {
@@ -883,7 +891,15 @@ function completeExpiredQueues(items, shouldSave = false) {
   const hasChanges = updated.some((item, index) => item !== items[index]);
 
   if (hasChanges && shouldSave) {
-    writeStoredQueues(updated);
+    updated.forEach((item) => {
+      const original = items.find((queue) => queue.id === item.id);
+
+      if (original !== item) {
+        updateQueue(item.id, item).catch((error) =>
+          showToast(getStorageError(error), "error"),
+        );
+      }
+    });
   }
 
   return updated;
@@ -895,36 +911,55 @@ function syncExpiredQueues() {
 
   if (!hasChanges) return;
 
+  const previous = queues;
   queues = updated;
-  writeStoredQueues(queues);
+  updated.forEach((item, index) => {
+    if (item !== previous[index]) {
+      updateQueue(item.id, item).catch((error) =>
+        showToast(getStorageError(error), "error"),
+      );
+    }
+  });
   render();
 }
 
 function normalizeQueue(item) {
   return {
     id: item.id,
-    firstName: item.firstName,
-    lastName: item.lastName,
-    phone: item.phone,
-    secretCode: item.secretCode,
-    location: item.location,
-    date: item.date,
-    time: item.time,
+    firstName: item.firstName || "",
+    lastName: item.lastName || "",
+    phone: item.phone || "",
+    secretCode: item.secretCode || "",
+    location: item.location || "",
+    date: item.date || isoToday,
+    time: item.time || "00:00",
     note: item.note || "",
     status: item.status || "active",
     cancelReason: item.cancelReason || "",
     cancelledAt: item.cancelledAt || "",
-    createdAt: item.createdAt || new Date().toISOString(),
+    createdAt: item.createdAt || item.created || new Date().toISOString(),
   };
 }
 
-function createId() {
-  if (window.crypto?.randomUUID) {
-    return window.crypto.randomUUID();
+async function pbRequest(url, options = {}) {
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...(options.headers || {}),
+    },
+  });
+
+  if (response.status === 204) return null;
+
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "PocketBase bilan bog'lanishda xatolik.");
   }
 
-  return `${Date.now()}-${Math.random().toString(16).slice(2)}`;
-  }
+  return data;
+}
 
 function getStorageError(error) {
   return error?.message || "Ma'lumotni saqlashda xatolik yuz berdi.";
