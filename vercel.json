@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "routes": [
+    {
+      "src": "/",
+      "dest": "/pocket/index.html"
+    },
+    {
+      "src": "/(app\\.js|styles\\.css|image\\.png)",
+      "dest": "/pocket/$1"
+    },
+    {
+      "src": "/pocket/(.*)",
+      "dest": "/pocket/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/pocket/index.html"
+    }
+  ]
+}
