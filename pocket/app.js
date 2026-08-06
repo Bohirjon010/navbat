@@ -7,12 +7,14 @@ const PB_API_BASE =
     ? window.location.origin
     : "http://127.0.0.1:8090";
 const QUEUES_ENDPOINT = `${PB_API_BASE}/api/collections/queues/records`;
+const LOCAL_STORAGE_KEY = "gap-navbati-queues";
 
 let queues = [];
 let queueFilter = "all";
 let queueQuery = "";
 let historyQuery = "";
 let statusFilter = "all";
+let storageBackend = "pocketbase";
 
 const els = {
   loader: document.querySelector("#loader"),
@@ -836,13 +838,22 @@ async function refreshQueues() {
 }
 
 async function loadQueues() {
-  const response = await pbRequest(
-    `${QUEUES_ENDPOINT}?perPage=500&sort=-createdAt`,
-  );
+  if (storageBackend === "local") return loadLocalQueues();
 
-  return response.items.map(normalizeQueue).sort(
-    (a, b) => new Date(b.createdAt) - new Date(a.createdAt),
-  );
+  try {
+    const response = await pbRequest(
+      `${QUEUES_ENDPOINT}?perPage=500&sort=-createdAt`,
+    );
+
+    if (!Array.isArray(response.items)) {
+      throw new Error("PocketBase javobi noto'g'ri.");
+    }
+
+    return response.items.map(normalizeQueue).sort(sortByNewest);
+  } catch (error) {
+    storageBackend = "local";
+    return loadLocalQueues();
+  }
 }
 
 async function createQueue(item) {
@@ -853,29 +864,53 @@ async function createQueue(item) {
     }),
   );
 
-  return normalizeQueue(
-    await pbRequest(QUEUES_ENDPOINT, {
-      method: "POST",
-      body: JSON.stringify(created),
-    }),
-  );
+  if (storageBackend === "local") return createLocalQueue(created);
+
+  try {
+    return normalizeQueue(
+      await pbRequest(QUEUES_ENDPOINT, {
+        method: "POST",
+        body: JSON.stringify(created),
+      }),
+    );
+  } catch (error) {
+    storageBackend = "local";
+    return createLocalQueue(created);
+  }
 }
 
 async function updateQueue(id, item) {
   const updated = completeExpiredQueue(normalizeQueue({ ...item, id }));
 
-  return normalizeQueue(
-    await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
-      method: "PATCH",
-      body: JSON.stringify(updated),
-    }),
-  );
+  if (storageBackend === "local") return updateLocalQueue(id, updated);
+
+  try {
+    return normalizeQueue(
+      await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        body: JSON.stringify(updated),
+      }),
+    );
+  } catch (error) {
+    storageBackend = "local";
+    return updateLocalQueue(id, updated);
+  }
 }
 
 async function removeQueue(id) {
-  await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
-    method: "DELETE",
-  });
+  if (storageBackend === "local") {
+    removeLocalQueue(id);
+    return;
+  }
+
+  try {
+    await pbRequest(`${QUEUES_ENDPOINT}/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    storageBackend = "local";
+    removeLocalQueue(id);
+  }
 }
 
 function completeExpiredQueue(item) {
@@ -941,6 +976,62 @@ function normalizeQueue(item) {
   };
 }
 
+function loadLocalQueues() {
+  return readLocalQueues().sort(sortByNewest);
+}
+
+function createLocalQueue(item) {
+  const queue = normalizeQueue({
+    ...item,
+    id: item.id || createLocalId(),
+    createdAt: item.createdAt || new Date().toISOString(),
+  });
+  const queues = readLocalQueues().filter((current) => current.id !== queue.id);
+  saveLocalQueues([queue, ...queues]);
+  return queue;
+}
+
+function updateLocalQueue(id, item) {
+  const updated = normalizeQueue({ ...item, id });
+  const queues = readLocalQueues();
+  const existingIndex = queues.findIndex((queue) => queue.id === id);
+
+  if (existingIndex === -1) {
+    queues.unshift(updated);
+  } else {
+    queues[existingIndex] = updated;
+  }
+
+  saveLocalQueues(queues);
+  return updated;
+}
+
+function removeLocalQueue(id) {
+  saveLocalQueues(readLocalQueues().filter((queue) => queue.id !== id));
+}
+
+function readLocalQueues() {
+  try {
+    const data = JSON.parse(localStorage.getItem(LOCAL_STORAGE_KEY) || "[]");
+    return Array.isArray(data) ? data.map(normalizeQueue) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveLocalQueues(items) {
+  localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
+}
+
+function createLocalId() {
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID();
+  return `local-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function sortByNewest(a, b) {
+  return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
 async function pbRequest(url, options = {}) {
   const response = await fetch(url, {
     ...options,
@@ -951,6 +1042,11 @@ async function pbRequest(url, options = {}) {
   });
 
   if (response.status === 204) return null;
+
+  const contentType = response.headers.get("content-type") || "";
+  if (!contentType.includes("application/json")) {
+    throw new Error("PocketBase bilan bog'lanishda xatolik.");
+  }
 
   const data = await response.json().catch(() => ({}));
 
