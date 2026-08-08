@@ -25,13 +25,13 @@
         <p class="eyebrow">Kirish bo'limi</p>
         <h1 id="roleTitle" style="margin-bottom: 40px">Gap Navbati</h1>
         <div class="role-grid">
-          <button class="role-card" data-role="admin" type="button">
-            <i data-lucide="shield-check"></i>
-            <span>Admin</span>
-          </button>
           <button class="role-card" data-role="user" type="button">
             <i data-lucide="user-round"></i>
             <span>Foydalanuvchi</span>
+          </button>
+          <button class="role-card" data-role="admin" type="button">
+            <i data-lucide="shield-check"></i>
+            <span>Admin</span>
           </button>
         </div>
         <form class="admin-login" id="adminLoginForm" hidden>
@@ -192,6 +192,10 @@
           <input type="hidden" id="queueId" />
           <div class="form-grid">
             <label>
+              <span><i data-lucide="user-round"></i> Familya</span>
+              <input id="lastName" type="text" placeholder="Akramov" required />
+            </label>
+            <label>
               <span><i data-lucide="user"></i> Ism</span>
               <input
                 id="firstName"
@@ -199,10 +203,6 @@
                 placeholder="Bohirjon"
                 required
               />
-            </label>
-            <label>
-              <span><i data-lucide="user-round"></i> Familya</span>
-              <input id="lastName" type="text" placeholder="Akramov" required />
             </label>
             <label>
               <span><i data-lucide="phone"></i> Telefon raqam</span>
