@@ -568,6 +568,13 @@
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
-    <script src="app.js"></script>
+    <script type="importmap">
+      {
+        "imports": {
+          "pocketbase": "https://esm.sh/pocketbase"
+        }
+      }
+    </script>
+    <script type="module" src="app.js"></script>
   </body>
 </html>
