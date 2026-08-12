@@ -1,1 +1,3 @@
-Error: listen tcp 127.0.0.1:8090: bind: Only one usage of each socket address (protocol/network address/port) is normally permitted.
+2026/08/12 19:19:15 Server started at http://127.0.0.1:8090
+├─ REST API:  http://127.0.0.1:8090/api/
+└─ Dashboard: http://127.0.0.1:8090/_/

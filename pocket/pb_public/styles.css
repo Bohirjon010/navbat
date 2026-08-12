@@ -1300,7 +1300,7 @@ th {
   .section,
   .footer-inner,
   .footer > p {
-    width: min(100% - 22px, 1180px);
+    width: min(100% - 32px, 1180px);
   }
 
   .section {
@@ -1457,7 +1457,7 @@ th {
   .section,
   .footer-inner,
   .footer > p {
-    width: min(100% - 16px, 1180px);
+    width: min(100% - 24px, 1180px);
   }
 
   .nav-shell {
