@@ -15,6 +15,7 @@ migrate((app) => {
       pattern: "^\\d{4}$",
     }),
     new TextField({ name: "location", required: true, max: 180 }),
+    new TextField({ name: "mapLocation", required: false, max: 500 }),
     new TextField({
       name: "date",
       required: true,
@@ -53,6 +54,7 @@ migrate((app) => {
     "phone",
     "secretCode",
     "location",
+    "mapLocation",
     "date",
     "time",
     "note",

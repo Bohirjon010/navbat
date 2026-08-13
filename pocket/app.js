@@ -4,6 +4,11 @@ const today = new Date();
 const isoToday = toDateInput(today);
 
 const AUTO_COMPLETE_INTERVAL_MS = 1000;
+const DEFAULT_MAP_POSITION = {
+  lat: 40.4367931,
+  lng: 70.6134872,
+  zoom: 15,
+};
 const pb = new PocketBase("http://127.0.0.1:8090");
 
 let queues = [];
@@ -30,7 +35,8 @@ const els = {
   lastName: document.querySelector("#lastName"),
   phone: document.querySelector("#phone"),
   secretCode: document.querySelector("#secretCode"),
-  location: document.querySelector("#location"),
+  mapLocation: document.querySelector("#mapLocation"),
+  mapLocationText: document.querySelector("#mapLocationText"),
   date: document.querySelector("#date"),
   time: document.querySelector("#time"),
   note: document.querySelector("#note"),
@@ -51,6 +57,9 @@ const els = {
   detailModal: document.querySelector("#detailModal"),
   detailTitle: document.querySelector("#detailTitle"),
   detailList: document.querySelector("#detailList"),
+  mapPickerModal: document.querySelector("#mapPickerModal"),
+  mapPickerCanvas: document.querySelector("#mapPickerCanvas"),
+  mapPickerSave: document.querySelector("#mapPickerSave"),
   totalCount: document.querySelector("#totalCount"),
   activeCount: document.querySelector("#activeCount"),
   doneCount: document.querySelector("#doneCount"),
@@ -61,12 +70,19 @@ const els = {
   adminLastName: document.querySelector("#adminLastName"),
   adminPhone: document.querySelector("#adminPhone"),
   adminSecretCode: document.querySelector("#adminSecretCode"),
-  adminLocation: document.querySelector("#adminLocation"),
+  adminMapLocation: document.querySelector("#adminMapLocation"),
+  adminMapLocationText: document.querySelector("#adminMapLocationText"),
   adminDate: document.querySelector("#adminDate"),
   adminTime: document.querySelector("#adminTime"),
   adminNote: document.querySelector("#adminNote"),
   adminCancelEdit: document.querySelector("#adminCancelEdit"),
 };
+
+let mapPickerField = null;
+let mapPickerDisplay = null;
+let mapPickerMap = null;
+let mapPickerMarker = null;
+let mapPickerPosition = null;
 
 document.addEventListener("DOMContentLoaded", async () => {
   setInitialTheme();
@@ -121,9 +137,21 @@ function bindEvents() {
       closeDetail();
     }
   });
+  els.mapPickerModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-map-picker]")) {
+      closeMapPicker();
+    }
+  });
+  els.mapPickerSave.addEventListener("click", saveMapPicker);
+  document.querySelectorAll("[data-map-open]").forEach((button) => {
+    button.addEventListener("click", () =>
+      openMapPicker(button.dataset.mapTarget),
+    );
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeDetail();
+      closeMapPicker();
     }
   });
   els.latestGrid.addEventListener("click", handleCardAction);
@@ -179,7 +207,8 @@ async function handleSubmit(event) {
     lastName: els.lastName.value.trim(),
     phone: els.phone.value.trim(),
     secretCode: els.secretCode.value.trim(),
-    location: els.location.value.trim(),
+    location: els.mapLocationText.value.trim(),
+    mapLocation: els.mapLocation.value.trim(),
     date: els.date.value,
     time: els.time.value,
     note: els.note.value.trim(),
@@ -192,7 +221,7 @@ async function handleSubmit(event) {
     !item.lastName ||
     !item.phone ||
     !item.secretCode ||
-    !item.location ||
+    !item.mapLocation ||
     !item.date ||
     !item.time
   ) {
@@ -229,6 +258,7 @@ async function handleSubmit(event) {
 
     els.form.reset();
     els.queueId.value = "";
+    setMapInputValue(els.mapLocation, els.mapLocationText, "");
     render();
     document
       .querySelector("#queues")
@@ -351,6 +381,7 @@ function queueCard(item) {
       <div class="meta-list">
         <span class="meta"><i data-lucide="phone"></i> ${escapeHtml(item.phone)}</span>
         <span class="meta"><i data-lucide="map-pin"></i> ${escapeHtml(item.location)}</span>
+        ${mapLocationLink(item)}
         <span class="meta"><i data-lucide="calendar-days"></i> ${formatDate(item.date)}</span>
         <span class="meta"><i data-lucide="clock-3"></i> ${item.time}</span>
       </div>
@@ -377,6 +408,7 @@ function adminCard(item) {
         <span class="meta"><i data-lucide="phone"></i> ${escapeHtml(item.phone)}</span>
         <span class="meta"><i data-lucide="key-round"></i> Kod: ${escapeHtml(item.secretCode || "-")}</span>
         <span class="meta"><i data-lucide="map-pin"></i> ${escapeHtml(item.location)}</span>
+        ${mapLocationLink(item)}
         <span class="meta"><i data-lucide="calendar-days"></i> ${formatDate(item.date)}</span>
         <span class="meta"><i data-lucide="clock-3"></i> ${item.time}</span>
         <span class="meta"><span class="status ${item.status}">${status.icon} ${status.label}</span></span>
@@ -399,7 +431,7 @@ function historyRow(item) {
       <td>${escapeHtml(item.firstName)}</td>
       <td>${escapeHtml(item.lastName)}</td>
       <td>${escapeHtml(item.phone)}</td>
-      <td>${escapeHtml(item.location)}</td>
+      <td>${locationTableCell(item)}</td>
       <td>${formatDate(item.date)}</td>
       <td>${item.time}</td>
       <td><span class="status ${item.status}">${status.icon} ${status.label}</span></td>
@@ -417,7 +449,7 @@ function adminHistoryRow(item) {
       <td>${escapeHtml(item.lastName)}</td>
       <td>${escapeHtml(item.phone)}</td>
       <td>${escapeHtml(item.secretCode || "-")}</td>
-      <td>${escapeHtml(item.location)}</td>
+      <td>${locationTableCell(item)}</td>
       <td>${formatDate(item.date)}</td>
       <td>${item.time}</td>
       <td><span class="status ${item.status}">${status.icon} ${status.label}</span></td>
@@ -477,7 +509,8 @@ async function handleAdminEditSubmit(event) {
       lastName: els.adminLastName.value.trim(),
       phone: els.adminPhone.value.trim(),
       secretCode: adminSecretCode,
-      location: els.adminLocation.value.trim(),
+      location: els.adminMapLocationText.value.trim(),
+      mapLocation: els.adminMapLocation.value.trim(),
       date: els.adminDate.value,
       time: els.adminTime.value,
       note: els.adminNote.value.trim(),
@@ -498,7 +531,12 @@ function editAdminItem(item) {
   els.adminLastName.value = item.lastName;
   els.adminPhone.value = item.phone;
   els.adminSecretCode.value = item.secretCode || "";
-  els.adminLocation.value = item.location;
+  setMapInputValue(
+    els.adminMapLocation,
+    els.adminMapLocationText,
+    item.mapLocation || "",
+    item.location,
+  );
   els.adminDate.value = item.date;
   els.adminTime.value = item.time;
   els.adminNote.value = item.note;
@@ -518,7 +556,12 @@ function editItem(item) {
   els.lastName.value = item.lastName;
   els.phone.value = item.phone;
   els.secretCode.value = item.secretCode || "";
-  els.location.value = item.location;
+  setMapInputValue(
+    els.mapLocation,
+    els.mapLocationText,
+    item.mapLocation || "",
+    item.location,
+  );
   els.date.value = item.date;
   els.time.value = item.time;
   els.note.value = item.note;
@@ -611,6 +654,14 @@ function showDetail(item) {
       <span><i data-lucide="map-pin"></i> Lokatsiya</span>
       <strong>${escapeHtml(item.location)}</strong>
     </div>
+    ${
+      item.mapLocation
+        ? `<div class="detail-item">
+            <span><i data-lucide="map"></i> Karta</span>
+            <strong><a class="map-link" href="${escapeAttribute(item.mapLocation)}" target="_blank" rel="noreferrer">Kartada ochish</a></strong>
+          </div>`
+        : ""
+    }
     <div class="detail-item">
       <span><i data-lucide="calendar-days"></i> Sana</span>
       <strong>${formatDate(item.date)}</strong>
@@ -649,6 +700,84 @@ function closeDetail() {
   els.detailModal.setAttribute("aria-hidden", "true");
 }
 
+function openMapPicker(target) {
+  if (!window.L) {
+    showToast("Karta yuklanmadi. Internet aloqasini tekshiring.", "error");
+    return;
+  }
+
+  mapPickerField =
+    target === "admin" ? els.adminMapLocation : els.mapLocation;
+  mapPickerDisplay =
+    target === "admin" ? els.adminMapLocationText : els.mapLocationText;
+  const currentPosition = parseMapLocation(mapPickerField.value);
+  const center = currentPosition || DEFAULT_MAP_POSITION;
+  mapPickerPosition = currentPosition;
+
+  els.mapPickerModal.classList.add("open");
+  els.mapPickerModal.setAttribute("aria-hidden", "false");
+
+  window.setTimeout(() => {
+    if (!mapPickerMap) {
+      mapPickerMap = window.L.map(els.mapPickerCanvas).setView(
+        [center.lat, center.lng],
+        center.zoom || DEFAULT_MAP_POSITION.zoom,
+      );
+      window.L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+        attribution: "&copy; OpenStreetMap",
+      }).addTo(mapPickerMap);
+      mapPickerMap.on("click", (event) => {
+        setMapPickerMarker(event.latlng.lat, event.latlng.lng);
+      });
+    }
+
+    mapPickerMap.invalidateSize();
+    mapPickerMap.setView(
+      [center.lat, center.lng],
+      center.zoom || DEFAULT_MAP_POSITION.zoom,
+    );
+
+    if (currentPosition) {
+      setMapPickerMarker(currentPosition.lat, currentPosition.lng);
+    } else if (mapPickerMarker) {
+      mapPickerMap.removeLayer(mapPickerMarker);
+      mapPickerMarker = null;
+    }
+  }, 80);
+}
+
+function closeMapPicker() {
+  els.mapPickerModal.classList.remove("open");
+  els.mapPickerModal.setAttribute("aria-hidden", "true");
+}
+
+async function saveMapPicker() {
+  if (!mapPickerPosition || !mapPickerField || !mapPickerDisplay) {
+    showToast("Kartada joy belgilang.", "error");
+    return;
+  }
+
+  const value = `https://www.google.com/maps?q=${mapPickerPosition.lat},${mapPickerPosition.lng}`;
+  setMapInputValue(mapPickerField, mapPickerDisplay, value, "Joy aniqlanmoqda...");
+  const label = await getMapLocationText(mapPickerPosition);
+  setMapInputValue(mapPickerField, mapPickerDisplay, value, label);
+  closeMapPicker();
+  showToast("Karta joyi belgilandi.", "success");
+}
+
+function setMapPickerMarker(lat, lng) {
+  mapPickerPosition = {
+    lat: Number(lat.toFixed(6)),
+    lng: Number(lng.toFixed(6)),
+  };
+
+  if (!mapPickerMarker) {
+    mapPickerMarker = window.L.marker([lat, lng]).addTo(mapPickerMap);
+  } else {
+    mapPickerMarker.setLatLng([lat, lng]);
+  }
+}
+
 function matchesQueueFilter(item) {
   const itemDate = parseLocalDate(item.date);
   const start = startOfDay(today);
@@ -676,6 +805,7 @@ function matchesQuery(item, query, includeSecret = false) {
     item.lastName,
     item.phone,
     item.location,
+    item.mapLocation,
     item.date,
     item.time,
     item.note,
@@ -922,7 +1052,8 @@ function normalizeQueue(item) {
     lastName: item.lastName || "",
     phone: item.phone || "",
     secretCode: item.secretCode || "",
-    location: item.location || "",
+    location: item.location || formatMapLocation(item.mapLocation) || "",
+    mapLocation: item.mapLocation || "",
     date: item.date || isoToday,
     time: item.time || "00:00",
     note: item.note || "",
@@ -935,6 +1066,74 @@ function normalizeQueue(item) {
 
 function sortByNewest(a, b) {
   return new Date(b.createdAt) - new Date(a.createdAt);
+}
+
+function mapLocationLink(item) {
+  if (!item.mapLocation) return "";
+
+  return `<a class="meta map-link" href="${escapeAttribute(item.mapLocation)}" target="_blank" rel="noreferrer"><i data-lucide="map"></i> Kartada ochish</a>`;
+}
+
+function mapLocationTableCell(item) {
+  if (!item.mapLocation) return "-";
+
+  return `<a class="map-link" href="${escapeAttribute(item.mapLocation)}" target="_blank" rel="noreferrer">Kartada ochish</a>`;
+}
+
+function locationTableCell(item) {
+  const location = escapeHtml(item.location || "-");
+  const mapLink = mapLocationTableCell(item);
+
+  return item.mapLocation ? `${location}<br>${mapLink}` : location;
+}
+
+function setMapInputValue(field, display, value, label = "") {
+  field.value = value || "";
+  display.value = label || formatMapLocation(value);
+}
+
+async function getMapLocationText(position) {
+  const fallback = `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`;
+  const url = new URL("https://nominatim.openstreetmap.org/reverse");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("lat", position.lat);
+  url.searchParams.set("lon", position.lng);
+  url.searchParams.set("accept-language", "uz");
+
+  try {
+    const response = await fetch(url.toString(), {
+      headers: { Accept: "application/json" },
+    });
+    if (!response.ok) return fallback;
+
+    const data = await response.json();
+    return data.display_name || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function formatMapLocation(value) {
+  const location = parseMapLocation(value);
+
+  if (!location) return "";
+
+  return `${location.lat.toFixed(6)}, ${location.lng.toFixed(6)}`;
+}
+
+function parseMapLocation(value) {
+  const cleanValue = String(value || "");
+  const match =
+    cleanValue.match(/q=(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+    cleanValue.match(/@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/) ||
+    cleanValue.match(/!3d(-?\d+(?:\.\d+)?)!4d(-?\d+(?:\.\d+)?)/);
+
+  if (!match) return null;
+
+  return {
+    lat: Number(match[1]),
+    lng: Number(match[2]),
+  };
 }
 
 function getStorageError(error) {
@@ -1027,4 +1226,8 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function escapeAttribute(value) {
+  return escapeHtml(value).replaceAll("`", "&#096;");
 }

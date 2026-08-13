@@ -40,6 +40,11 @@ migrate((app) => {
         max: 180,
       }),
       new TextField({
+        name: "mapLocation",
+        required: false,
+        max: 500,
+      }),
+      new TextField({
         name: "date",
         required: true,
         max: 10,

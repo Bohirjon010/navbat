@@ -11,6 +11,10 @@
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
       rel="stylesheet"
     />
+    <link
+      rel="stylesheet"
+      href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
@@ -230,13 +234,25 @@
               </small>
             </label>
             <label>
-              <span><i data-lucide="map-pin"></i> Lokatsiya</span>
-              <input
-                id="location"
-                type="text"
-                placeholder="Beshariq"
-                required
-              />
+              <span><i data-lucide="map"></i> Karta</span>
+              <input id="mapLocation" type="hidden" />
+              <div class="map-input">
+                <input
+                  id="mapLocationText"
+                  type="text"
+                  placeholder="Lokatsiyadan joy belgilang"
+                  readonly
+                />
+                <button
+                  class="action-button"
+                  type="button"
+                  data-map-open
+                  data-map-target="user"
+                  aria-label="Kartadan joy belgilash"
+                >
+                  <i data-lucide="map-pin"></i>
+                </button>
+              </div>
             </label>
             <label>
               <span><i data-lucide="calendar-days"></i> Sana</span>
@@ -456,8 +472,25 @@
               />
             </label>
             <label>
-              <span><i data-lucide="map-pin"></i> Lokatsiya</span>
-              <input id="adminLocation" type="text" required />
+              <span><i data-lucide="map"></i> Karta</span>
+              <input id="adminMapLocation" type="hidden" />
+              <div class="map-input">
+                <input
+                  id="adminMapLocationText"
+                  type="text"
+                  placeholder="Lokatsiyadan joy belgilang"
+                  readonly
+                />
+                <button
+                  class="action-button"
+                  type="button"
+                  data-map-open
+                  data-map-target="admin"
+                  aria-label="Kartadan joy belgilash"
+                >
+                  <i data-lucide="map-pin"></i>
+                </button>
+              </div>
             </label>
             <label>
               <span><i data-lucide="calendar-days"></i> Sana</span>
@@ -565,8 +598,45 @@
       </article>
     </div>
 
+    <div class="map-picker-modal" id="mapPickerModal" aria-hidden="true">
+      <div class="detail-backdrop" data-close-map-picker></div>
+      <article
+        class="map-picker-card glass"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="mapPickerTitle"
+      >
+        <button
+          class="icon-button detail-close"
+          type="button"
+          aria-label="Yopish"
+          data-close-map-picker
+        >
+          <i data-lucide="x"></i>
+        </button>
+        <p class="eyebrow">Karta</p>
+        <h2 id="mapPickerTitle">Joyni belgilang</h2>
+        <div class="map-picker-canvas" id="mapPickerCanvas"></div>
+        <div class="admin-form-actions map-picker-actions">
+          <button class="primary-button save-button" id="mapPickerSave" type="button">
+            <i data-lucide="check"></i>
+            <span>Saqlash</span>
+          </button>
+          <button
+            class="ghost-button save-button"
+            type="button"
+            data-close-map-picker
+          >
+            <i data-lucide="x"></i>
+            <span>Bekor qilish</span>
+          </button>
+        </div>
+      </article>
+    </div>
+
     <div class="toast-stack" id="toastStack" aria-live="polite"></div>
 
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
     <script type="importmap">
       {
