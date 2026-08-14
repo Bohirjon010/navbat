@@ -120,6 +120,7 @@ select {
 }
 
 body:not(.role-selected) .site-header,
+body:not(.role-selected) .queue-reminder-bar,
 body:not(.role-selected) main,
 body:not(.role-selected) .footer {
   display: none;
@@ -231,6 +232,74 @@ body.role-selected .role-gate {
   gap: 22px;
 }
 
+.queue-reminder-bar {
+  position: sticky;
+  top: 76px;
+  z-index: 99;
+  padding: 10px 0;
+  background: color-mix(in srgb, var(--bg) 86%, transparent);
+  border-bottom: 1px solid rgba(250, 204, 21, 0.22);
+  backdrop-filter: blur(18px);
+}
+
+.queue-reminder-bar[hidden] {
+  display: none;
+}
+
+.queue-reminder-inner {
+  width: min(1180px, calc(100% - 32px));
+  min-height: 56px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 14px;
+  border: 1px solid rgba(250, 204, 21, 0.28);
+  border-radius: 18px;
+  background: rgba(250, 204, 21, 0.08);
+  box-shadow: 0 14px 36px rgba(2, 6, 23, 0.18);
+}
+
+.queue-reminder-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  color: #facc15;
+  background: rgba(250, 204, 21, 0.14);
+}
+
+.queue-reminder-copy {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+
+.queue-reminder-copy span,
+.queue-reminder-time {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.queue-reminder-copy strong {
+  overflow: hidden;
+  color: var(--text);
+  font-size: 16px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.queue-reminder-time {
+  padding: 8px 10px;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.42);
+  color: #fef3c7;
+  white-space: nowrap;
+}
+
 .brand {
   display: inline-flex;
   align-items: center;
@@ -323,7 +392,9 @@ label svg {
 
 .admin-nav-link,
 body.admin-mode .user-nav-link,
-body.admin-mode .nav-actions > a.primary-button {
+body.admin-mode .nav-actions > a.primary-button,
+body.admin-mode .admin-panel-button,
+body.user-mode .role-switch {
   display: none;
 }
 
@@ -676,7 +747,7 @@ td {
 }
 
 .map-input input {
-  cursor: pointer;
+  cursor: text;
 }
 
 .map-input .action-button {
@@ -1016,6 +1087,100 @@ th {
   font-size: 38px;
 }
 
+.admin-analytics {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.analytics-card,
+.chart-card {
+  border-radius: 20px;
+  padding: 22px;
+}
+
+.analytics-card {
+  min-height: 136px;
+  display: grid;
+  align-content: space-between;
+}
+
+.analytics-card-head,
+.chart-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.analytics-card-head div,
+.chart-heading div {
+  display: grid;
+  gap: 6px;
+}
+
+.analytics-card span,
+.chart-heading span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.analytics-card strong {
+  font-size: 36px;
+  line-height: 1;
+}
+
+.analytics-card p {
+  color: var(--muted);
+  margin: 0;
+}
+
+.analytics-card svg,
+.chart-card svg {
+  width: 30px;
+  height: 30px;
+  color: var(--primary);
+}
+
+.chart-card canvas {
+  width: 100%;
+  height: 260px;
+  display: block;
+  margin-top: 18px;
+}
+
+.chart-heading strong {
+  font-size: 18px;
+}
+
+.chart-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.chart-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.chart-legend i {
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  display: inline-block;
+}
+
+.chart-legend strong {
+  color: var(--text);
+}
+
 .toast-stack {
   position: fixed;
   right: 18px;
@@ -1025,7 +1190,8 @@ th {
   gap: 10px;
 }
 
-.detail-modal {
+.detail-modal,
+.admin-login-modal {
   position: fixed;
   inset: 0;
   z-index: 210;
@@ -1034,7 +1200,8 @@ th {
   padding: 18px;
 }
 
-.detail-modal.open {
+.detail-modal.open,
+.admin-login-modal.open {
   display: grid;
 }
 
@@ -1067,6 +1234,24 @@ th {
   animation: detailIn 0.22s ease;
 }
 
+.admin-login-card {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  border-radius: 20px;
+  padding: 28px;
+  animation: detailIn 0.22s ease;
+}
+
+.admin-login-card h2 {
+  padding-right: 42px;
+  margin-bottom: 18px;
+}
+
+.admin-login-card .admin-login {
+  margin-top: 0;
+}
+
 .map-picker-card {
   position: relative;
   z-index: 1;
@@ -1079,6 +1264,22 @@ th {
 .map-picker-card h2 {
   padding-right: 42px;
   margin-bottom: 18px;
+}
+
+.map-picker-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.map-picker-search .search-box {
+  min-height: 50px;
+}
+
+.map-picker-search .primary-button {
+  min-height: 50px;
+  white-space: nowrap;
 }
 
 .map-picker-canvas {
@@ -1155,6 +1356,14 @@ th {
 
 .toast.error svg {
   color: #ef4444;
+}
+
+.toast.warning svg {
+  color: #facc15;
+}
+
+.toast.warning {
+  border-color: rgba(250, 204, 21, 0.34);
 }
 
 .empty-state {
@@ -1271,7 +1480,8 @@ th {
     justify-self: end;
   }
 
-  .nav-actions .primary-button span {
+  .nav-actions .primary-button span,
+  .admin-panel-button span {
     display: none;
   }
 
@@ -1320,6 +1530,10 @@ th {
     top: 68px;
   }
 
+  .queue-reminder-bar {
+    top: 68px;
+  }
+
   .brand {
     min-width: 0;
   }
@@ -1330,7 +1544,8 @@ th {
     white-space: nowrap;
   }
 
-  .role-switch span {
+  .role-switch span,
+  .admin-panel-button span {
     display: none;
   }
 
@@ -1386,6 +1601,7 @@ th {
   }
 
   .nav-actions .primary-button,
+  .admin-panel-button,
   .role-switch {
     width: 40px;
     min-width: 40px;
@@ -1413,6 +1629,19 @@ th {
     font-size: 16px;
   }
 
+  .queue-reminder-inner {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .queue-reminder-copy strong {
+    white-space: normal;
+  }
+
+  .queue-reminder-time {
+    grid-column: 2;
+    justify-self: start;
+  }
+
   .hero-actions,
   .primary-button.large,
   .ghost-button.large {
@@ -1431,6 +1660,7 @@ th {
   .form-grid,
   .role-grid,
   .admin-stats,
+  .admin-analytics,
   .admin-form-actions {
     grid-template-columns: 1fr;
   }
@@ -1523,6 +1753,14 @@ th {
   .map-picker-canvas {
     height: 54vh;
     min-height: 300px;
+  }
+
+  .chart-card canvas {
+    height: 220px;
+  }
+
+  .map-picker-search {
+    grid-template-columns: 1fr;
   }
 }
 

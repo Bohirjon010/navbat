@@ -4,6 +4,9 @@ const today = new Date();
 const isoToday = toDateInput(today);
 
 const AUTO_COMPLETE_INTERVAL_MS = 1000;
+const LIVE_REMINDER_INTERVAL_MS = 1000;
+const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
+const REMINDER_WINDOW_MS = 30 * 60 * 1000;
 const DEFAULT_MAP_POSITION = {
   lat: 40.4367931,
   lng: 70.6134872,
@@ -16,16 +19,20 @@ let queueFilter = "all";
 let queueQuery = "";
 let historyQuery = "";
 let statusFilter = "all";
+const shownReminders = new Set();
 
 const els = {
   loader: document.querySelector("#loader"),
-  roleGate: document.querySelector("#roleGate"),
   roleSwitch: document.querySelector("#roleSwitch"),
-  roleGrid: document.querySelector(".role-grid"),
+  adminPanelButton: document.querySelector("#adminPanelButton"),
+  adminLoginModal: document.querySelector("#adminLoginModal"),
   adminLoginForm: document.querySelector("#adminLoginForm"),
   adminLogin: document.querySelector("#adminLogin"),
   adminPassword: document.querySelector("#adminPassword"),
   adminLoginCancel: document.querySelector("#adminLoginCancel"),
+  queueReminderBar: document.querySelector("#queueReminderBar"),
+  queueReminderText: document.querySelector("#queueReminderText"),
+  queueReminderTime: document.querySelector("#queueReminderTime"),
   themeToggle: document.querySelector("#themeToggle"),
   menuToggle: document.querySelector("#menuToggle"),
   navLinks: document.querySelector("#navLinks"),
@@ -59,11 +66,18 @@ const els = {
   detailList: document.querySelector("#detailList"),
   mapPickerModal: document.querySelector("#mapPickerModal"),
   mapPickerCanvas: document.querySelector("#mapPickerCanvas"),
+  mapPickerSearchForm: document.querySelector("#mapPickerSearchForm"),
+  mapPickerSearch: document.querySelector("#mapPickerSearch"),
   mapPickerSave: document.querySelector("#mapPickerSave"),
   totalCount: document.querySelector("#totalCount"),
   activeCount: document.querySelector("#activeCount"),
   doneCount: document.querySelector("#doneCount"),
   cancelledCount: document.querySelector("#cancelledCount"),
+  weeklyCount: document.querySelector("#weeklyCount"),
+  monthlyCount: document.querySelector("#monthlyCount"),
+  weeklyChart: document.querySelector("#weeklyChart"),
+  monthlyChart: document.querySelector("#monthlyChart"),
+  monthlyChartLegend: document.querySelector("#monthlyChartLegend"),
   adminEditForm: document.querySelector("#adminEditForm"),
   adminQueueId: document.querySelector("#adminQueueId"),
   adminFirstName: document.querySelector("#adminFirstName"),
@@ -93,8 +107,15 @@ document.addEventListener("DOMContentLoaded", async () => {
   updateActiveMenu();
   window.setTimeout(() => els.loader.classList.add("hidden"), 550);
   window.setInterval(syncExpiredQueues, AUTO_COMPLETE_INTERVAL_MS);
-  document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) refreshQueues();
+  window.setInterval(renderPersistentReminder, LIVE_REMINDER_INTERVAL_MS);
+  window.setInterval(checkQueueReminders, REMINDER_CHECK_INTERVAL_MS);
+  renderPersistentReminder();
+  checkQueueReminders();
+  document.addEventListener("visibilitychange", async () => {
+    if (!document.hidden) {
+      await refreshQueues();
+      checkQueueReminders();
+    }
   });
 
   if (window.lucide) {
@@ -103,12 +124,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function bindEvents() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    button.addEventListener("click", () =>
-      handleRoleClick(button.dataset.role),
-    );
-  });
-
+  els.adminPanelButton.addEventListener("click", showAdminLogin);
   els.adminLoginForm.addEventListener("submit", handleAdminLogin);
   els.adminLoginCancel.addEventListener("click", hideAdminLogin);
   els.roleSwitch.addEventListener("click", resetRole);
@@ -128,13 +144,29 @@ function bindEvents() {
 
   window.addEventListener("hashchange", () => updateActiveMenu());
   window.addEventListener("scroll", updateActiveMenu, { passive: true });
+  window.addEventListener("resize", () => {
+    if (document.body.classList.contains("admin-mode")) {
+      renderAdminAnalytics();
+    }
+  });
 
   els.form.addEventListener("submit", handleSubmit);
   els.adminEditForm.addEventListener("submit", handleAdminEditSubmit);
   els.adminCancelEdit.addEventListener("click", closeAdminEdit);
+  els.mapLocationText.addEventListener("input", () => {
+    els.mapLocation.value = "";
+  });
+  els.adminMapLocationText.addEventListener("input", () => {
+    els.adminMapLocation.value = "";
+  });
   els.detailModal.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-detail]")) {
       closeDetail();
+    }
+  });
+  els.adminLoginModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-admin-login]")) {
+      hideAdminLogin();
     }
   });
   els.mapPickerModal.addEventListener("click", (event) => {
@@ -142,6 +174,7 @@ function bindEvents() {
       closeMapPicker();
     }
   });
+  els.mapPickerSearchForm.addEventListener("submit", searchMapLocation);
   els.mapPickerSave.addEventListener("click", saveMapPicker);
   document.querySelectorAll("[data-map-open]").forEach((button) => {
     button.addEventListener("click", () =>
@@ -151,6 +184,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeDetail();
+      hideAdminLogin();
       closeMapPicker();
     }
   });
@@ -221,7 +255,7 @@ async function handleSubmit(event) {
     !item.lastName ||
     !item.phone ||
     !item.secretCode ||
-    !item.mapLocation ||
+    !item.location ||
     !item.date ||
     !item.time
   ) {
@@ -260,6 +294,7 @@ async function handleSubmit(event) {
     els.queueId.value = "";
     setMapInputValue(els.mapLocation, els.mapLocationText, "");
     render();
+    checkQueueReminders();
     document
       .querySelector("#queues")
       .scrollIntoView({ behavior: "smooth", block: "start" });
@@ -274,6 +309,7 @@ function render() {
   renderHistory();
   renderAdmin();
   renderHeroStats();
+  renderPersistentReminder();
 
   if (window.lucide) {
     window.lucide.createIcons();
@@ -309,6 +345,7 @@ function renderAdmin() {
   els.cancelledCount.textContent = queues.filter(
     (item) => item.status === "cancelled",
   ).length;
+  renderAdminAnalytics();
 
   els.adminGrid.innerHTML = activeFiltered.length
     ? activeFiltered.map((item) => adminCard(item)).join("")
@@ -321,6 +358,51 @@ function renderAdmin() {
   if (window.lucide) {
     window.lucide.createIcons();
   }
+}
+
+function renderAdminAnalytics() {
+  const weekDays = getLastSevenDays();
+  const weekItems = queues.filter((item) =>
+    isDateBetween(item.date, weekDays[0], addDays(weekDays[6], 1)),
+  );
+  const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
+  const nextMonth = new Date(today.getFullYear(), today.getMonth() + 1, 1);
+  const monthItems = queues.filter((item) =>
+    isDateBetween(item.date, monthStart, nextMonth),
+  );
+
+  els.weeklyCount.textContent = weekItems.length;
+  els.monthlyCount.textContent = monthItems.length;
+
+  const weeklyData = weekDays.map((date) => {
+    const value = toDateInput(date);
+    return {
+      label: `${date.getDate()}.${date.getMonth() + 1}`,
+      value: weekItems.filter((item) => item.date === value).length,
+    };
+  });
+
+  const monthlyData = [
+    {
+      label: "Faol",
+      value: monthItems.filter((item) => item.status === "active").length,
+      color: "#22c55e",
+    },
+    {
+      label: "Tugallangan",
+      value: monthItems.filter((item) => item.status === "done").length,
+      color: "#38bdf8",
+    },
+    {
+      label: "Bekor qilingan",
+      value: monthItems.filter((item) => item.status === "cancelled").length,
+      color: "#f43f5e",
+    },
+  ];
+
+  drawBarChart(els.weeklyChart, weeklyData);
+  drawDoughnutChart(els.monthlyChart, monthlyData);
+  renderChartLegend(monthlyData);
 }
 
 function renderLatest() {
@@ -489,6 +571,7 @@ async function handleAdminEditSubmit(event) {
   }
 
   const adminSecretCode = els.adminSecretCode.value.trim();
+  const adminLocation = els.adminMapLocationText.value.trim();
   if (!/^\d{4}$/.test(adminSecretCode)) {
     showToast(
       "4 xonali kod faqat 4 ta raqamdan iborat bo'lishi kerak.",
@@ -502,6 +585,11 @@ async function handleAdminEditSubmit(event) {
     return;
   }
 
+  if (!adminLocation) {
+    showToast("Lokatsiyani kiriting yoki kartadan belgilang.", "error");
+    return;
+  }
+
   try {
     const updated = await updateQueue(id, {
       ...current,
@@ -509,7 +597,7 @@ async function handleAdminEditSubmit(event) {
       lastName: els.adminLastName.value.trim(),
       phone: els.adminPhone.value.trim(),
       secretCode: adminSecretCode,
-      location: els.adminMapLocationText.value.trim(),
+      location: adminLocation,
       mapLocation: els.adminMapLocation.value.trim(),
       date: els.adminDate.value,
       time: els.adminTime.value,
@@ -713,6 +801,7 @@ function openMapPicker(target) {
   const currentPosition = parseMapLocation(mapPickerField.value);
   const center = currentPosition || DEFAULT_MAP_POSITION;
   mapPickerPosition = currentPosition;
+  els.mapPickerSearch.value = mapPickerDisplay.value || "";
 
   els.mapPickerModal.classList.add("open");
   els.mapPickerModal.setAttribute("aria-hidden", "false");
@@ -749,6 +838,33 @@ function openMapPicker(target) {
 function closeMapPicker() {
   els.mapPickerModal.classList.remove("open");
   els.mapPickerModal.setAttribute("aria-hidden", "true");
+}
+
+async function searchMapLocation(event) {
+  event.preventDefault();
+
+  const query = els.mapPickerSearch.value.trim();
+  if (!query) {
+    showToast("Qidirish uchun manzil yozing.", "error");
+    return;
+  }
+
+  try {
+    const result = await getMapSearchResult(query);
+    if (!result) {
+      showToast("Bu manzil bo'yicha joy topilmadi.", "error");
+      return;
+    }
+
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    setMapPickerMarker(lat, lng);
+    mapPickerMap.setView([lat, lng], 16);
+    els.mapPickerSearch.value = result.display_name || query;
+    showToast("Joy topildi. Saqlash uchun tasdiqlang.", "success");
+  } catch (error) {
+    showToast(getStorageError(error), "error");
+  }
 }
 
 async function saveMapPicker() {
@@ -826,48 +942,47 @@ function statusMeta(status) {
   }[status];
 }
 
-function showToast(message, type) {
+function showToast(message, type, duration = 3200) {
   const toast = document.createElement("div");
   toast.className = `toast ${type}`;
-  toast.innerHTML = `<i data-lucide="${type === "success" ? "check-circle-2" : "circle-alert"}"></i><span>${escapeHtml(message)}</span>`;
+  toast.innerHTML = `<i data-lucide="${toastIcon(type)}"></i><span>${escapeHtml(message)}</span>`;
   els.toastStack.appendChild(toast);
 
   if (window.lucide) {
     window.lucide.createIcons();
   }
 
-  window.setTimeout(() => toast.remove(), 3200);
+  window.setTimeout(() => toast.remove(), duration);
+}
+
+function toastIcon(type) {
+  return {
+    success: "check-circle-2",
+    warning: "bell-ring",
+    error: "circle-alert",
+  }[type] || "info";
 }
 
 function selectRole(role) {
   document.body.classList.add("role-selected");
   document.body.classList.toggle("admin-mode", role === "admin");
   document.body.classList.toggle("user-mode", role === "user");
-  els.roleSwitch.querySelector("span").textContent =
-    role === "admin" ? "Admin chiqish" : "Chiqish";
+  els.roleSwitch.hidden = role !== "admin";
+  els.adminPanelButton.hidden = role === "admin";
   updateActiveMenu(role === "admin" ? "#adminHome" : "#home");
   render();
 }
 
-function handleRoleClick(role) {
-  if (role === "admin") {
-    showAdminLogin();
-    return;
-  }
-
-  selectRole("user");
-}
-
 function showAdminLogin() {
-  els.roleGrid.hidden = true;
-  els.adminLoginForm.hidden = false;
-  els.adminLogin.focus();
+  els.adminLoginModal.classList.add("open");
+  els.adminLoginModal.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => els.adminLogin.focus(), 80);
 }
 
 function hideAdminLogin() {
   els.adminLoginForm.reset();
-  els.adminLoginForm.hidden = true;
-  els.roleGrid.hidden = false;
+  els.adminLoginModal.classList.remove("open");
+  els.adminLoginModal.setAttribute("aria-hidden", "true");
 }
 
 function handleAdminLogin(event) {
@@ -887,9 +1002,8 @@ function handleAdminLogin(event) {
 }
 
 function resetRole() {
-  document.body.classList.remove("role-selected", "admin-mode", "user-mode");
+  selectRole("user");
   els.navLinks.classList.remove("open");
-  updateActiveMenu("#home");
   closeAdminEdit();
   hideAdminLogin();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -961,6 +1075,7 @@ async function refreshQueues() {
   }
 
   render();
+  checkQueueReminders();
 }
 
 async function loadQueues() {
@@ -1045,6 +1160,52 @@ function syncExpiredQueues() {
   render();
 }
 
+function checkQueueReminders(now = new Date()) {
+  queues
+    .filter((item) => item.status === "active")
+    .forEach((item) => {
+      const queueDate = getQueueDateTime(item);
+      const diff = queueDate - now;
+      const reminderKey = `${item.id}-${item.date}-${item.time}`;
+
+      if (diff < 0 || diff > REMINDER_WINDOW_MS || shownReminders.has(reminderKey)) {
+        return;
+      }
+
+      shownReminders.add(reminderKey);
+      const dayLabel = item.date === isoToday ? "bugun" : formatDate(item.date);
+      showToast(
+        `Eslatma: ${item.firstName} ${item.lastName}ning navbati ${dayLabel} ${item.time} da.`,
+        "warning",
+        9000,
+      );
+    });
+}
+
+function renderPersistentReminder(now = new Date()) {
+  const nextQueue = getNearestActiveQueue(now);
+
+  if (!nextQueue) {
+    els.queueReminderBar.hidden = true;
+    return;
+  }
+
+  const queueDate = getQueueDateTime(nextQueue);
+  const dayLabel = formatReminderDay(nextQueue.date, now);
+  els.queueReminderText.textContent =
+    `${nextQueue.firstName} ${nextQueue.lastName}ning navbati ${dayLabel} ${nextQueue.time} da.`;
+  els.queueReminderTime.textContent = `Qoldi: ${formatTimeUntil(queueDate - now)}`;
+  els.queueReminderBar.hidden = false;
+}
+
+function getNearestActiveQueue(now = new Date()) {
+  return queues
+    .filter((item) => item.status === "active")
+    .map((item) => ({ item, date: getQueueDateTime(item) }))
+    .filter(({ date }) => date >= now)
+    .sort((a, b) => a.date - b.date)[0]?.item || null;
+}
+
 function normalizeQueue(item) {
   return {
     id: item.id,
@@ -1113,6 +1274,24 @@ async function getMapLocationText(position) {
   }
 }
 
+async function getMapSearchResult(query) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("accept-language", "uz");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error("Manzil qidirishda xatolik yuz berdi.");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data[0] : null;
+}
+
 function formatMapLocation(value) {
   const location = parseMapLocation(value);
 
@@ -1165,6 +1344,135 @@ function emptyState(text) {
   return `<div class="empty-state reveal visible"><p>${text}</p></div>`;
 }
 
+function drawBarChart(canvas, data) {
+  const context = prepareCanvas(canvas);
+  if (!context) return;
+
+  const { ctx, width, height } = context;
+  const padding = { top: 18, right: 16, bottom: 34, left: 28 };
+  const chartWidth = width - padding.left - padding.right;
+  const chartHeight = height - padding.top - padding.bottom;
+  const maxValue = Math.max(...data.map((item) => item.value), 1);
+  const barGap = 10;
+  const barWidth = (chartWidth - barGap * (data.length - 1)) / data.length;
+
+  ctx.clearRect(0, 0, width, height);
+  ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(padding.left, padding.top);
+  ctx.lineTo(padding.left, padding.top + chartHeight);
+  ctx.lineTo(padding.left + chartWidth, padding.top + chartHeight);
+  ctx.stroke();
+
+  data.forEach((item, index) => {
+    const barHeight = (item.value / maxValue) * chartHeight;
+    const x = padding.left + index * (barWidth + barGap);
+    const y = padding.top + chartHeight - barHeight;
+
+    const gradient = ctx.createLinearGradient(0, y, 0, padding.top + chartHeight);
+    gradient.addColorStop(0, "#22c55e");
+    gradient.addColorStop(1, "rgba(34, 197, 94, 0.28)");
+    ctx.fillStyle = gradient;
+    roundRect(ctx, x, y, barWidth, Math.max(barHeight, 4), 8);
+    ctx.fill();
+
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "700 13px Inter, sans-serif";
+    ctx.textAlign = "center";
+    ctx.fillText(item.value, x + barWidth / 2, Math.max(y - 8, 14));
+
+    ctx.fillStyle = "rgba(203, 213, 225, 0.82)";
+    ctx.font = "600 12px Inter, sans-serif";
+    ctx.fillText(item.label, x + barWidth / 2, height - 10);
+  });
+}
+
+function drawDoughnutChart(canvas, data) {
+  const context = prepareCanvas(canvas);
+  if (!context) return;
+
+  const { ctx, width, height } = context;
+  const total = data.reduce((sum, item) => sum + item.value, 0);
+  const radius = Math.min(width, height) * 0.32;
+  const centerX = width / 2;
+  const centerY = height / 2;
+
+  ctx.clearRect(0, 0, width, height);
+
+  if (!total) {
+    ctx.strokeStyle = "rgba(148, 163, 184, 0.22)";
+    ctx.lineWidth = 24;
+    ctx.beginPath();
+    ctx.arc(centerX, centerY, radius, 0, Math.PI * 2);
+    ctx.stroke();
+  } else {
+    let start = -Math.PI / 2;
+    data.forEach((item) => {
+      const angle = (item.value / total) * Math.PI * 2;
+      ctx.strokeStyle = item.color;
+      ctx.lineWidth = 24;
+      ctx.lineCap = "round";
+      ctx.beginPath();
+      ctx.arc(centerX, centerY, radius, start, start + angle);
+      ctx.stroke();
+      start += angle;
+    });
+  }
+
+  ctx.fillStyle = "#f8fafc";
+  ctx.font = "800 34px Inter, sans-serif";
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+  ctx.fillText(total, centerX, centerY - 8);
+  ctx.fillStyle = "rgba(203, 213, 225, 0.82)";
+  ctx.font = "700 13px Inter, sans-serif";
+  ctx.fillText("jami", centerX, centerY + 22);
+}
+
+function prepareCanvas(canvas) {
+  if (!canvas) return null;
+
+  const ratio = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  const width = Math.max(Math.floor(rect.width), 260);
+  const height = Math.max(Math.floor(rect.height), 220);
+  canvas.width = width * ratio;
+  canvas.height = height * ratio;
+
+  const ctx = canvas.getContext("2d");
+  ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+  return { ctx, width, height };
+}
+
+function renderChartLegend(data) {
+  els.monthlyChartLegend.innerHTML = data
+    .map(
+      (item) => `
+        <span>
+          <i style="background:${item.color}"></i>
+          ${item.label}: <strong>${item.value}</strong>
+        </span>
+      `,
+    )
+    .join("");
+}
+
+function roundRect(ctx, x, y, width, height, radius) {
+  const safeRadius = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + safeRadius, y);
+  ctx.lineTo(x + width - safeRadius, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + safeRadius);
+  ctx.lineTo(x + width, y + height - safeRadius);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - safeRadius, y + height);
+  ctx.lineTo(x + safeRadius, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - safeRadius);
+  ctx.lineTo(x, y + safeRadius);
+  ctx.quadraticCurveTo(x, y, x + safeRadius, y);
+  ctx.closePath();
+}
+
 function formatDate(value) {
   const [year, month, day] = value.split("-");
   const monthInitials = [
@@ -1185,6 +1493,28 @@ function formatDate(value) {
   return `${year},${monthInitial}${month}.${day}`;
 }
 
+function formatReminderDay(value, now = new Date()) {
+  const todayValue = toDateInput(now);
+  const tomorrowValue = toDateInput(addDays(now, 1));
+
+  if (value === todayValue) return "bugun";
+  if (value === tomorrowValue) return "ertaga";
+  return formatDate(value);
+}
+
+function formatTimeUntil(milliseconds) {
+  const totalSeconds = Math.max(Math.ceil(milliseconds / 1000), 0);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) return `${days} kun ${hours} soat`;
+  if (hours > 0) return `${hours} soat ${minutes} daqiqa`;
+  if (minutes > 0) return `${minutes} daqiqa ${seconds} soniya`;
+  return `${seconds} soniya`;
+}
+
 function toDateInput(date) {
   const normalized = new Date(date);
   normalized.setMinutes(
@@ -1199,8 +1529,12 @@ function parseLocalDate(value) {
 }
 
 function isQueueTimePassed(item, now = new Date()) {
-  const [year, month, day] = item.date.split("-").map(Number);
-  const [hours = 0, minutes = 0] = item.time.split(":").map(Number);
+  const queueDate = getQueueDateTime(item);
+  const year = queueDate.getFullYear();
+  const month = queueDate.getMonth() + 1;
+  const day = queueDate.getDate();
+  const hours = queueDate.getHours();
+  const minutes = queueDate.getMinutes();
 
   if (now.getFullYear() !== year) return now.getFullYear() > year;
   if (now.getMonth() + 1 !== month) return now.getMonth() + 1 > month;
@@ -1209,10 +1543,27 @@ function isQueueTimePassed(item, now = new Date()) {
   return now.getMinutes() >= minutes;
 }
 
+function getQueueDateTime(item) {
+  const [year, month, day] = item.date.split("-").map(Number);
+  const [hours = 0, minutes = 0] = item.time.split(":").map(Number);
+  return new Date(year, month - 1, day, hours, minutes);
+}
+
 function addDays(date, days) {
   const next = new Date(date);
   next.setDate(next.getDate() + days);
   return next;
+}
+
+function getLastSevenDays() {
+  return Array.from({ length: 7 }, (_, index) =>
+    startOfDay(addDays(today, index - 6)),
+  );
+}
+
+function isDateBetween(value, start, end) {
+  const date = parseLocalDate(value);
+  return date >= startOfDay(start) && date < startOfDay(end);
 }
 
 function startOfDay(date) {
