@@ -323,7 +323,9 @@ label svg {
 
 .admin-nav-link,
 body.admin-mode .user-nav-link,
-body.admin-mode .nav-actions > a.primary-button {
+body.admin-mode .nav-actions > a.primary-button,
+body.admin-mode .admin-panel-button,
+body.user-mode .role-switch {
   display: none;
 }
 
@@ -676,7 +678,7 @@ td {
 }
 
 .map-input input {
-  cursor: pointer;
+  cursor: text;
 }
 
 .map-input .action-button {
@@ -1025,7 +1027,8 @@ th {
   gap: 10px;
 }
 
-.detail-modal {
+.detail-modal,
+.admin-login-modal {
   position: fixed;
   inset: 0;
   z-index: 210;
@@ -1034,7 +1037,8 @@ th {
   padding: 18px;
 }
 
-.detail-modal.open {
+.detail-modal.open,
+.admin-login-modal.open {
   display: grid;
 }
 
@@ -1067,6 +1071,24 @@ th {
   animation: detailIn 0.22s ease;
 }
 
+.admin-login-card {
+  position: relative;
+  z-index: 1;
+  width: min(460px, 100%);
+  border-radius: 20px;
+  padding: 28px;
+  animation: detailIn 0.22s ease;
+}
+
+.admin-login-card h2 {
+  padding-right: 42px;
+  margin-bottom: 18px;
+}
+
+.admin-login-card .admin-login {
+  margin-top: 0;
+}
+
 .map-picker-card {
   position: relative;
   z-index: 1;
@@ -1079,6 +1101,22 @@ th {
 .map-picker-card h2 {
   padding-right: 42px;
   margin-bottom: 18px;
+}
+
+.map-picker-search {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.map-picker-search .search-box {
+  min-height: 50px;
+}
+
+.map-picker-search .primary-button {
+  min-height: 50px;
+  white-space: nowrap;
 }
 
 .map-picker-canvas {
@@ -1271,7 +1309,8 @@ th {
     justify-self: end;
   }
 
-  .nav-actions .primary-button span {
+  .nav-actions .primary-button span,
+  .admin-panel-button span {
     display: none;
   }
 
@@ -1330,7 +1369,8 @@ th {
     white-space: nowrap;
   }
 
-  .role-switch span {
+  .role-switch span,
+  .admin-panel-button span {
     display: none;
   }
 
@@ -1386,6 +1426,7 @@ th {
   }
 
   .nav-actions .primary-button,
+  .admin-panel-button,
   .role-switch {
     width: 40px;
     min-width: 40px;
@@ -1523,6 +1564,10 @@ th {
   .map-picker-canvas {
     height: 54vh;
     min-height: 300px;
+  }
+
+  .map-picker-search {
+    grid-template-columns: 1fr;
   }
 }
 

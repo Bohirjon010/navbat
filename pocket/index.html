@@ -17,65 +17,12 @@
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body>
+  <body class="role-selected user-mode">
     <div class="loader" id="loader" aria-label="Yuklanmoqda">
       <span></span>
       <span></span>
       <span></span>
     </div>
-
-    <section class="role-gate" id="roleGate" aria-labelledby="roleTitle">
-      <div class="role-panel glass">
-        <p class="eyebrow">Kirish bo'limi</p>
-        <h1 id="roleTitle" style="margin-bottom: 40px">Gap Navbati</h1>
-        <div class="role-grid">
-          <button class="role-card" data-role="user" type="button">
-            <i data-lucide="user-round"></i>
-            <span>Foydalanuvchi</span>
-          </button>
-          <button class="role-card" data-role="admin" type="button">
-            <i data-lucide="shield-check"></i>
-            <span>Admin</span>
-          </button>
-        </div>
-        <form class="admin-login" id="adminLoginForm" hidden>
-          <label>
-            <span><i data-lucide="user-cog"></i> Login</span>
-            <input
-              id="adminLogin"
-              type="text"
-              placeholder="Login"
-              autocomplete="username"
-              required
-            />
-          </label>
-          <label>
-            <span><i data-lucide="lock-keyhole"></i> Parol</span>
-            <input
-              id="adminPassword"
-              type="password"
-              placeholder="Parol"
-              autocomplete="current-password"
-              required
-            />
-          </label>
-          <div class="admin-form-actions">
-            <button class="primary-button save-button" type="submit">
-              <i data-lucide="log-in"></i>
-              <span>Kirish</span>
-            </button>
-            <button
-              class="ghost-button save-button"
-              id="adminLoginCancel"
-              type="button"
-            >
-              <i data-lucide="arrow-left"></i>
-              <span>Orqaga</span>
-            </button>
-          </div>
-        </form>
-      </div>
-    </section>
 
     <header class="site-header">
       <nav class="nav-shell" aria-label="Asosiy menyu">
@@ -105,6 +52,14 @@
 
         <div class="nav-actions">
           <button
+            class="ghost-button admin-panel-button"
+            id="adminPanelButton"
+            type="button"
+          >
+            <i data-lucide="shield-check"></i>
+            <span>Admin panel</span>
+          </button>
+          <button
             class="icon-button"
             id="themeToggle"
             type="button"
@@ -118,7 +73,7 @@
             type="button"
           >
             <i data-lucide="log-out"></i>
-            <span>Chiqish</span>
+            <span>Admin chiqish</span>
           </button>
           <a class="primary-button" href="#add">
             <i data-lucide="circle-plus"></i>
@@ -240,8 +195,8 @@
                 <input
                   id="mapLocationText"
                   type="text"
-                  placeholder="Lokatsiyadan joy belgilang"
-                  readonly
+                  placeholder="Lokatsiyani yozing yoki kartadan belgilang"
+                  required
                 />
                 <button
                   class="action-button"
@@ -478,8 +433,8 @@
                 <input
                   id="adminMapLocationText"
                   type="text"
-                  placeholder="Lokatsiyadan joy belgilang"
-                  readonly
+                  placeholder="Lokatsiyani yozing yoki kartadan belgilang"
+                  required
                 />
                 <button
                   class="action-button"
@@ -598,6 +553,63 @@
       </article>
     </div>
 
+    <div class="admin-login-modal" id="adminLoginModal" aria-hidden="true">
+      <div class="detail-backdrop" data-close-admin-login></div>
+      <article
+        class="admin-login-card glass"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="adminLoginTitle"
+      >
+        <button
+          class="icon-button detail-close"
+          type="button"
+          aria-label="Yopish"
+          data-close-admin-login
+        >
+          <i data-lucide="x"></i>
+        </button>
+        <p class="eyebrow">Admin</p>
+        <h2 id="adminLoginTitle">Admin panelga kirish</h2>
+        <form class="admin-login" id="adminLoginForm">
+          <label>
+            <span><i data-lucide="user-cog"></i> Login</span>
+            <input
+              id="adminLogin"
+              type="text"
+              placeholder="Login"
+              autocomplete="username"
+              required
+            />
+          </label>
+          <label>
+            <span><i data-lucide="lock-keyhole"></i> Parol</span>
+            <input
+              id="adminPassword"
+              type="password"
+              placeholder="Parol"
+              autocomplete="current-password"
+              required
+            />
+          </label>
+          <div class="admin-form-actions">
+            <button class="primary-button save-button" type="submit">
+              <i data-lucide="log-in"></i>
+              <span>Kirish</span>
+            </button>
+            <button
+              class="ghost-button save-button"
+              id="adminLoginCancel"
+              type="button"
+            >
+              <i data-lucide="x"></i>
+              <span>Bekor qilish</span>
+            </button>
+          </div>
+        </form>
+      </article>
+    </div>
+
     <div class="map-picker-modal" id="mapPickerModal" aria-hidden="true">
       <div class="detail-backdrop" data-close-map-picker></div>
       <article
@@ -616,6 +628,21 @@
         </button>
         <p class="eyebrow">Karta</p>
         <h2 id="mapPickerTitle">Joyni belgilang</h2>
+        <form class="map-picker-search" id="mapPickerSearchForm">
+          <label class="search-box">
+            <i data-lucide="search"></i>
+            <input
+              id="mapPickerSearch"
+              type="search"
+              placeholder="Manzil yoki joy nomini qidiring..."
+              autocomplete="off"
+            />
+          </label>
+          <button class="primary-button" type="submit">
+            <i data-lucide="map-pin"></i>
+            <span>Qidirish</span>
+          </button>
+        </form>
         <div class="map-picker-canvas" id="mapPickerCanvas"></div>
         <div class="admin-form-actions map-picker-actions">
           <button class="primary-button save-button" id="mapPickerSave" type="button">

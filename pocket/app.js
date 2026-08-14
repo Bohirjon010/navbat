@@ -19,9 +19,9 @@ let statusFilter = "all";
 
 const els = {
   loader: document.querySelector("#loader"),
-  roleGate: document.querySelector("#roleGate"),
   roleSwitch: document.querySelector("#roleSwitch"),
-  roleGrid: document.querySelector(".role-grid"),
+  adminPanelButton: document.querySelector("#adminPanelButton"),
+  adminLoginModal: document.querySelector("#adminLoginModal"),
   adminLoginForm: document.querySelector("#adminLoginForm"),
   adminLogin: document.querySelector("#adminLogin"),
   adminPassword: document.querySelector("#adminPassword"),
@@ -59,6 +59,8 @@ const els = {
   detailList: document.querySelector("#detailList"),
   mapPickerModal: document.querySelector("#mapPickerModal"),
   mapPickerCanvas: document.querySelector("#mapPickerCanvas"),
+  mapPickerSearchForm: document.querySelector("#mapPickerSearchForm"),
+  mapPickerSearch: document.querySelector("#mapPickerSearch"),
   mapPickerSave: document.querySelector("#mapPickerSave"),
   totalCount: document.querySelector("#totalCount"),
   activeCount: document.querySelector("#activeCount"),
@@ -103,12 +105,7 @@ document.addEventListener("DOMContentLoaded", async () => {
 });
 
 function bindEvents() {
-  document.querySelectorAll("[data-role]").forEach((button) => {
-    button.addEventListener("click", () =>
-      handleRoleClick(button.dataset.role),
-    );
-  });
-
+  els.adminPanelButton.addEventListener("click", showAdminLogin);
   els.adminLoginForm.addEventListener("submit", handleAdminLogin);
   els.adminLoginCancel.addEventListener("click", hideAdminLogin);
   els.roleSwitch.addEventListener("click", resetRole);
@@ -132,9 +129,20 @@ function bindEvents() {
   els.form.addEventListener("submit", handleSubmit);
   els.adminEditForm.addEventListener("submit", handleAdminEditSubmit);
   els.adminCancelEdit.addEventListener("click", closeAdminEdit);
+  els.mapLocationText.addEventListener("input", () => {
+    els.mapLocation.value = "";
+  });
+  els.adminMapLocationText.addEventListener("input", () => {
+    els.adminMapLocation.value = "";
+  });
   els.detailModal.addEventListener("click", (event) => {
     if (event.target.closest("[data-close-detail]")) {
       closeDetail();
+    }
+  });
+  els.adminLoginModal.addEventListener("click", (event) => {
+    if (event.target.closest("[data-close-admin-login]")) {
+      hideAdminLogin();
     }
   });
   els.mapPickerModal.addEventListener("click", (event) => {
@@ -142,6 +150,7 @@ function bindEvents() {
       closeMapPicker();
     }
   });
+  els.mapPickerSearchForm.addEventListener("submit", searchMapLocation);
   els.mapPickerSave.addEventListener("click", saveMapPicker);
   document.querySelectorAll("[data-map-open]").forEach((button) => {
     button.addEventListener("click", () =>
@@ -151,6 +160,7 @@ function bindEvents() {
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape") {
       closeDetail();
+      hideAdminLogin();
       closeMapPicker();
     }
   });
@@ -221,7 +231,7 @@ async function handleSubmit(event) {
     !item.lastName ||
     !item.phone ||
     !item.secretCode ||
-    !item.mapLocation ||
+    !item.location ||
     !item.date ||
     !item.time
   ) {
@@ -489,6 +499,7 @@ async function handleAdminEditSubmit(event) {
   }
 
   const adminSecretCode = els.adminSecretCode.value.trim();
+  const adminLocation = els.adminMapLocationText.value.trim();
   if (!/^\d{4}$/.test(adminSecretCode)) {
     showToast(
       "4 xonali kod faqat 4 ta raqamdan iborat bo'lishi kerak.",
@@ -502,6 +513,11 @@ async function handleAdminEditSubmit(event) {
     return;
   }
 
+  if (!adminLocation) {
+    showToast("Lokatsiyani kiriting yoki kartadan belgilang.", "error");
+    return;
+  }
+
   try {
     const updated = await updateQueue(id, {
       ...current,
@@ -509,7 +525,7 @@ async function handleAdminEditSubmit(event) {
       lastName: els.adminLastName.value.trim(),
       phone: els.adminPhone.value.trim(),
       secretCode: adminSecretCode,
-      location: els.adminMapLocationText.value.trim(),
+      location: adminLocation,
       mapLocation: els.adminMapLocation.value.trim(),
       date: els.adminDate.value,
       time: els.adminTime.value,
@@ -713,6 +729,7 @@ function openMapPicker(target) {
   const currentPosition = parseMapLocation(mapPickerField.value);
   const center = currentPosition || DEFAULT_MAP_POSITION;
   mapPickerPosition = currentPosition;
+  els.mapPickerSearch.value = mapPickerDisplay.value || "";
 
   els.mapPickerModal.classList.add("open");
   els.mapPickerModal.setAttribute("aria-hidden", "false");
@@ -749,6 +766,33 @@ function openMapPicker(target) {
 function closeMapPicker() {
   els.mapPickerModal.classList.remove("open");
   els.mapPickerModal.setAttribute("aria-hidden", "true");
+}
+
+async function searchMapLocation(event) {
+  event.preventDefault();
+
+  const query = els.mapPickerSearch.value.trim();
+  if (!query) {
+    showToast("Qidirish uchun manzil yozing.", "error");
+    return;
+  }
+
+  try {
+    const result = await getMapSearchResult(query);
+    if (!result) {
+      showToast("Bu manzil bo'yicha joy topilmadi.", "error");
+      return;
+    }
+
+    const lat = Number(result.lat);
+    const lng = Number(result.lon);
+    setMapPickerMarker(lat, lng);
+    mapPickerMap.setView([lat, lng], 16);
+    els.mapPickerSearch.value = result.display_name || query;
+    showToast("Joy topildi. Saqlash uchun tasdiqlang.", "success");
+  } catch (error) {
+    showToast(getStorageError(error), "error");
+  }
 }
 
 async function saveMapPicker() {
@@ -843,31 +887,22 @@ function selectRole(role) {
   document.body.classList.add("role-selected");
   document.body.classList.toggle("admin-mode", role === "admin");
   document.body.classList.toggle("user-mode", role === "user");
-  els.roleSwitch.querySelector("span").textContent =
-    role === "admin" ? "Admin chiqish" : "Chiqish";
+  els.roleSwitch.hidden = role !== "admin";
+  els.adminPanelButton.hidden = role === "admin";
   updateActiveMenu(role === "admin" ? "#adminHome" : "#home");
   render();
 }
 
-function handleRoleClick(role) {
-  if (role === "admin") {
-    showAdminLogin();
-    return;
-  }
-
-  selectRole("user");
-}
-
 function showAdminLogin() {
-  els.roleGrid.hidden = true;
-  els.adminLoginForm.hidden = false;
-  els.adminLogin.focus();
+  els.adminLoginModal.classList.add("open");
+  els.adminLoginModal.setAttribute("aria-hidden", "false");
+  window.setTimeout(() => els.adminLogin.focus(), 80);
 }
 
 function hideAdminLogin() {
   els.adminLoginForm.reset();
-  els.adminLoginForm.hidden = true;
-  els.roleGrid.hidden = false;
+  els.adminLoginModal.classList.remove("open");
+  els.adminLoginModal.setAttribute("aria-hidden", "true");
 }
 
 function handleAdminLogin(event) {
@@ -887,9 +922,8 @@ function handleAdminLogin(event) {
 }
 
 function resetRole() {
-  document.body.classList.remove("role-selected", "admin-mode", "user-mode");
+  selectRole("user");
   els.navLinks.classList.remove("open");
-  updateActiveMenu("#home");
   closeAdminEdit();
   hideAdminLogin();
   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1111,6 +1145,24 @@ async function getMapLocationText(position) {
   } catch {
     return fallback;
   }
+}
+
+async function getMapSearchResult(query) {
+  const url = new URL("https://nominatim.openstreetmap.org/search");
+  url.searchParams.set("format", "jsonv2");
+  url.searchParams.set("q", query);
+  url.searchParams.set("limit", "1");
+  url.searchParams.set("accept-language", "uz");
+
+  const response = await fetch(url.toString(), {
+    headers: { Accept: "application/json" },
+  });
+  if (!response.ok) {
+    throw new Error("Manzil qidirishda xatolik yuz berdi.");
+  }
+
+  const data = await response.json();
+  return Array.isArray(data) ? data[0] : null;
 }
 
 function formatMapLocation(value) {
