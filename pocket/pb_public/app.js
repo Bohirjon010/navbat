@@ -12,7 +12,15 @@ const DEFAULT_MAP_POSITION = {
   lng: 70.6134872,
   zoom: 15,
 };
-const pb = new PocketBase("http://127.0.0.1:8090");
+// `window.POCKETBASE_URL` can be set in config.js for a remote deployment.
+// Locally, the PocketBase API runs on its standard port; when this file is
+// served by PocketBase itself, the API shares the current origin.
+const pocketBaseUrl =
+  window.POCKETBASE_URL ||
+  (location.port === "8090"
+    ? location.origin
+    : `${location.protocol}//${location.hostname || "127.0.0.1"}:8090`);
+const pb = new PocketBase(pocketBaseUrl);
 
 let queues = [];
 let queueFilter = "all";
@@ -1316,11 +1324,13 @@ function parseMapLocation(value) {
 }
 
 function getStorageError(error) {
-  return (
-    error?.response?.message ||
-    error?.message ||
-    "Ma'lumotni saqlashda xatolik yuz berdi."
-  );
+  const message = error?.response?.message || error?.message || "";
+
+  if (/something went wrong|failed to fetch|networkerror/i.test(message)) {
+    return "PocketBase serveriga ulanib bo'lmadi. Server ishga tushganini tekshiring.";
+  }
+
+  return message || "Ma'lumotni saqlashda xatolik yuz berdi.";
 }
 
 function revealOnScroll() {
