@@ -83,6 +83,19 @@
       </nav>
     </header>
 
+    <div class="queue-reminder-bar" id="queueReminderBar" hidden>
+      <div class="queue-reminder-inner">
+        <span class="queue-reminder-icon">
+          <i data-lucide="bell-ring"></i>
+        </span>
+        <div class="queue-reminder-copy">
+          <span>Navbat eslatmasi</span>
+          <strong id="queueReminderText"></strong>
+        </div>
+        <span class="queue-reminder-time" id="queueReminderTime"></span>
+      </div>
+    </div>
+
     <main id="userApp">
       <section class="hero section" id="home">
         <div class="hero-copy reveal">
@@ -373,6 +386,49 @@
             <i data-lucide="x-circle"></i>
             <span>Bekor qilingan</span>
             <strong id="cancelledCount">0</strong>
+          </article>
+        </div>
+        <div class="admin-analytics">
+          <article class="analytics-card glass">
+            <div class="analytics-card-head">
+              <div>
+                <span>Haftalik statistika</span>
+                <strong id="weeklyCount">0</strong>
+              </div>
+              <i data-lucide="calendar-range"></i>
+            </div>
+            <p>Oxirgi 7 kun ichidagi navbatlar</p>
+          </article>
+          <article class="analytics-card glass">
+            <div class="analytics-card-head">
+              <div>
+                <span>Oylik statistika</span>
+                <strong id="monthlyCount">0</strong>
+              </div>
+              <i data-lucide="calendar-days"></i>
+            </div>
+            <p>Joriy oy ichidagi navbatlar</p>
+          </article>
+          <article class="chart-card glass">
+            <div class="chart-heading">
+              <div>
+                <span>Haftalik grafik</span>
+                <strong>Kunlar bo'yicha</strong>
+              </div>
+              <i data-lucide="bar-chart-3"></i>
+            </div>
+            <canvas id="weeklyChart" aria-label="Haftalik navbat grafigi"></canvas>
+          </article>
+          <article class="chart-card glass">
+            <div class="chart-heading">
+              <div>
+                <span>Oylik grafik</span>
+                <strong>Holatlar bo'yicha</strong>
+              </div>
+              <i data-lucide="pie-chart"></i>
+            </div>
+            <canvas id="monthlyChart" aria-label="Oylik holatlar grafigi"></canvas>
+            <div class="chart-legend" id="monthlyChartLegend"></div>
           </article>
         </div>
       </section>

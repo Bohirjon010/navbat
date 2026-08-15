@@ -7,6 +7,10 @@ const AUTO_COMPLETE_INTERVAL_MS = 1000;
 const LIVE_REMINDER_INTERVAL_MS = 1000;
 const REMINDER_CHECK_INTERVAL_MS = 60 * 1000;
 const REMINDER_WINDOW_MS = 30 * 60 * 1000;
+const ADMIN_LOGIN_LOCK_KEY = "gap-navbati-admin-login-lock";
+const ADMIN_LOGIN_MAX_ATTEMPTS = 5;
+const ADMIN_LOGIN_LOCK_MS = 15 * 60 * 1000;
+const ADMIN_LOGIN_DOMAIN = "gapnavbati.local";
 const DEFAULT_MAP_POSITION = {
   lat: 40.4367931,
   lng: 70.6134872,
@@ -17,14 +21,9 @@ const pb = new PocketBase("http://127.0.0.1:8090");
 let queues = [];
 let queueFilter = "all";
 let queueQuery = "";
-const queueSearchFilters = {
-  code: "",
-  phone: "",
-  date: "",
-  status: "active",
-};
 let historyQuery = "";
 let statusFilter = "all";
+let adminLogs = [];
 const shownReminders = new Set();
 
 const els = {
@@ -58,11 +57,8 @@ const els = {
   historyBody: document.querySelector("#historyBody"),
   adminGrid: document.querySelector("#adminGrid"),
   adminHistoryBody: document.querySelector("#adminHistoryBody"),
+  adminAuditBody: document.querySelector("#adminAuditBody"),
   queueSearch: document.querySelector("#queueSearch"),
-  queueCodeSearch: document.querySelector("#queueCodeSearch"),
-  queuePhoneSearch: document.querySelector("#queuePhoneSearch"),
-  queueDateSearch: document.querySelector("#queueDateSearch"),
-  queueStatusSearch: document.querySelector("#queueStatusSearch"),
   historySearch: document.querySelector("#historySearch"),
   adminSearch: document.querySelector("#adminSearch"),
   statusFilter: document.querySelector("#statusFilter"),
@@ -112,6 +108,7 @@ document.addEventListener("DOMContentLoaded", async () => {
   setInitialTheme();
   els.date.min = isoToday;
   bindEvents();
+  await restoreAdminSession();
   await refreshQueues();
   revealOnScroll();
   updateActiveMenu();
@@ -204,23 +201,6 @@ function bindEvents() {
   els.adminHistoryBody.addEventListener("click", handleCardAction);
   els.queueSearch.addEventListener("input", (event) => {
     queueQuery = event.target.value.trim().toLowerCase();
-    renderQueues();
-  });
-  els.queueCodeSearch.addEventListener("input", (event) => {
-    event.target.value = event.target.value.replace(/\D/g, "").slice(0, 4);
-    queueSearchFilters.code = event.target.value;
-    renderQueues();
-  });
-  els.queuePhoneSearch.addEventListener("input", (event) => {
-    queueSearchFilters.phone = normalizePhoneSearch(event.target.value);
-    renderQueues();
-  });
-  els.queueDateSearch.addEventListener("change", (event) => {
-    queueSearchFilters.date = event.target.value;
-    renderQueues();
-  });
-  els.queueStatusSearch.addEventListener("change", (event) => {
-    queueSearchFilters.status = event.target.value;
     renderQueues();
   });
   els.secretCode.addEventListener("input", () => {
@@ -335,6 +315,7 @@ function render() {
   renderQueues();
   renderHistory();
   renderAdmin();
+  renderAdminAudit();
   renderHeroStats();
   renderPersistentReminder();
 
@@ -446,7 +427,6 @@ function renderLatest() {
 function renderQueues() {
   const filtered = queues
     .filter(matchesQueueFilter)
-    .filter(matchesQueueSearchFilters)
     .filter((item) => matchesQuery(item, queueQuery, true));
 
   els.queueGrid.innerHTML = filtered.length
@@ -528,8 +508,8 @@ function adminCard(item) {
       <p>${escapeHtml(item.note || "Izoh kiritilmagan.")}</p>
       <div class="card-actions">
         <button class="action-button" data-action="admin-edit" data-id="${item.id}" type="button" aria-label="Edit"><i data-lucide="pencil"></i></button>
-        <button class="action-button danger" data-action="delete" data-id="${item.id}" type="button" aria-label="Delete"><i data-lucide="trash-2"></i></button>
-        <button class="action-button" data-action="done" data-id="${item.id}" type="button" aria-label="Tugallash"><i data-lucide="check"></i></button>
+        <button class="action-button danger" data-action="admin-delete" data-id="${item.id}" type="button" aria-label="Delete"><i data-lucide="trash-2"></i></button>
+        <button class="action-button" data-action="admin-done" data-id="${item.id}" type="button" aria-label="Tugallash"><i data-lucide="check"></i></button>
       </div>
     </article>
   `;
@@ -567,7 +547,7 @@ function adminHistoryRow(item) {
       <td><span class="status ${item.status}">${status.icon} ${status.label}</span></td>
       <td>${escapeHtml(item.cancelReason || "-")}</td>
       <td>
-        <button class="action-button danger" data-action="delete-history" data-id="${item.id}" type="button" aria-label="Tarixdan o'chirish">
+        <button class="action-button danger" data-action="admin-delete-history" data-id="${item.id}" type="button" aria-label="Tarixdan o'chirish">
           <i data-lucide="trash-2"></i>
         </button>
       </td>
@@ -579,19 +559,29 @@ function handleCardAction(event) {
   const button = event.target.closest("[data-action]");
   if (!button) return;
 
+  if (button.dataset.action.startsWith("admin") && !isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
+
   const item = queues.find((queue) => queue.id === button.dataset.id);
   if (!item) return;
 
   if (button.dataset.action === "edit") editItem(item);
   if (button.dataset.action === "admin-edit") editAdminItem(item);
-  if (button.dataset.action === "delete") deleteItem(item.id);
-  if (button.dataset.action === "delete-history") deleteHistoryItem(item.id);
+  if (button.dataset.action === "admin-delete") deleteItem(item.id);
+  if (button.dataset.action === "admin-delete-history") deleteHistoryItem(item.id);
   if (button.dataset.action === "detail") showDetail(item);
-  if (button.dataset.action === "done") completeItem(item.id);
+  if (button.dataset.action === "admin-done") completeItem(item.id);
 }
 
 async function handleAdminEditSubmit(event) {
   event.preventDefault();
+
+  if (!isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
 
   const id = els.adminQueueId.value;
   const current = queues.find((queue) => queue.id === id);
@@ -635,6 +625,7 @@ async function handleAdminEditSubmit(event) {
     });
 
     queues = queues.map((queue) => (queue.id === id ? updated : queue));
+    await logAdminAction("queue_update", updated, "Admin navbatni tahrirladi");
     closeAdminEdit();
     render();
     showToast("Admin panelda navbat yangilandi.", "success");
@@ -644,6 +635,11 @@ async function handleAdminEditSubmit(event) {
 }
 
 function editAdminItem(item) {
+  if (!isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
+
   els.adminQueueId.value = item.id;
   els.adminFirstName.value = item.firstName;
   els.adminLastName.value = item.lastName;
@@ -689,6 +685,11 @@ function editItem(item) {
 }
 
 async function deleteItem(id) {
+  if (!isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
+
   const reason = window.prompt("Navbat nima uchun o'chirilmoqda?");
   if (reason === null) return;
 
@@ -709,6 +710,7 @@ async function deleteItem(id) {
       cancelledAt: new Date().toISOString(),
     });
     queues = queues.map((item) => (item.id === id ? updated : item));
+    await logAdminAction("queue_cancel", updated, cleanReason);
     render();
     showToast("Navbat bekor qilindi va sababi tarixga yozildi.", "success");
   } catch (error) {
@@ -717,6 +719,11 @@ async function deleteItem(id) {
 }
 
 async function deleteHistoryItem(id) {
+  if (!isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
+
   const item = queues.find((queue) => queue.id === id);
   if (!item) {
     showToast("Tarixdagi navbat topilmadi.", "error");
@@ -731,6 +738,7 @@ async function deleteHistoryItem(id) {
   try {
     await removeQueue(id);
     queues = queues.filter((queue) => queue.id !== id);
+    await logAdminAction("queue_delete", item, "Tarixdan butunlay o'chirildi");
     render();
     showToast("Navbat admin va foydalanuvchi tarixidan o'chirildi.", "success");
   } catch (error) {
@@ -739,12 +747,18 @@ async function deleteHistoryItem(id) {
 }
 
 async function completeItem(id) {
+  if (!isAdminAuthenticated()) {
+    requireAdminLogin();
+    return;
+  }
+
   const current = queues.find((queue) => queue.id === id);
   if (!current) return;
 
   try {
     const updated = await updateQueue(id, { ...current, status: "done" });
     queues = queues.map((item) => (item.id === id ? updated : item));
+    await logAdminAction("queue_done", updated, "Navbat tugallandi");
     render();
     showToast("Navbat tugallangan deb belgilandi.", "success");
   } catch (error) {
@@ -938,17 +952,6 @@ function matchesQueueFilter(item) {
   return true;
 }
 
-function matchesQueueSearchFilters(item) {
-  const { code, phone, date, status } = queueSearchFilters;
-
-  if (status !== "all" && item.status !== status) return false;
-  if (code && !String(item.secretCode || "").includes(code)) return false;
-  if (date && item.date !== date) return false;
-  if (phone && !normalizePhoneSearch(item.phone).includes(phone)) return false;
-
-  return true;
-}
-
 function isSecretCodeTaken(secretCode, ignoredId = "") {
   return queues.some(
     (item) => item.id !== ignoredId && item.secretCode === secretCode,
@@ -1011,6 +1014,38 @@ function toastIcon(type) {
   }[type] || "info";
 }
 
+function renderAdminAudit() {
+  if (!els.adminAuditBody) return;
+
+  els.adminAuditBody.innerHTML = adminLogs.length
+    ? adminLogs.map(adminAuditRow).join("")
+    : `<tr><td colspan="6" class="empty-row">Admin amallari hali yo'q.</td></tr>`;
+}
+
+function adminAuditRow(item) {
+  return `
+    <tr>
+      <td>${formatDateTime(item.created || item.createdAt)}</td>
+      <td>${escapeHtml(item.adminEmail || "-")}</td>
+      <td>${escapeHtml(adminActionLabel(item.action))}</td>
+      <td>${escapeHtml(item.queueTitle || "-")}</td>
+      <td>${escapeHtml(item.queueId || "-")}</td>
+      <td>${escapeHtml(item.note || "-")}</td>
+    </tr>
+  `;
+}
+
+function adminActionLabel(action) {
+  return {
+    login: "Kirish",
+    logout: "Chiqish",
+    queue_update: "Navbat tahrirlandi",
+    queue_cancel: "Navbat bekor qilindi",
+    queue_delete: "Navbat o'chirildi",
+    queue_done: "Navbat tugallandi",
+  }[action] || action;
+}
+
 function selectRole(role) {
   document.body.classList.add("role-selected");
   document.body.classList.toggle("admin-mode", role === "admin");
@@ -1022,6 +1057,12 @@ function selectRole(role) {
 }
 
 function showAdminLogin() {
+  const lock = getAdminLoginLock();
+  if (lock.lockedUntil > Date.now()) {
+    showToast(getAdminLockMessage(lock.lockedUntil), "error");
+    return;
+  }
+
   els.adminLoginModal.classList.add("open");
   els.adminLoginModal.setAttribute("aria-hidden", "false");
   window.setTimeout(() => els.adminLogin.focus(), 80);
@@ -1033,28 +1074,129 @@ function hideAdminLogin() {
   els.adminLoginModal.setAttribute("aria-hidden", "true");
 }
 
-function handleAdminLogin(event) {
+async function handleAdminLogin(event) {
   event.preventDefault();
 
-  const login = els.adminLogin.value.trim();
+  const login = normalizeAdminLogin(els.adminLogin.value);
   const password = els.adminPassword.value;
+  const lock = getAdminLoginLock();
 
-  if (login === "admin" && password === "admin123") {
-    hideAdminLogin();
-    selectRole("admin");
-    showToast("Admin panelga xush kelibsiz.", "success");
+  if (lock.lockedUntil > Date.now()) {
+    showToast(getAdminLockMessage(lock.lockedUntil), "error");
     return;
   }
 
-  showToast("Login yoki parol noto'g'ri.", "error");
+  try {
+    await pb.collection("admins").authWithPassword(login, password);
+    clearAdminLoginLock();
+    await logAdminAction("login", null, "Admin panelga kirdi");
+    hideAdminLogin();
+    selectRole("admin");
+    await loadAdminLogs();
+    showToast("Admin panelga xush kelibsiz.", "success");
+  } catch (error) {
+    const updatedLock = registerFailedAdminLogin();
+    const attemptsLeft = Math.max(
+      ADMIN_LOGIN_MAX_ATTEMPTS - updatedLock.attempts,
+      0,
+    );
+
+    if (updatedLock.lockedUntil > Date.now()) {
+      showToast(getAdminLockMessage(updatedLock.lockedUntil), "error");
+    } else {
+      showToast(
+        `Login yoki parol noto'g'ri. Qolgan urinishlar: ${attemptsLeft}.`,
+        "error",
+      );
+    }
+  }
 }
 
-function resetRole() {
+async function resetRole() {
+  if (isAdminAuthenticated()) {
+    await logAdminAction("logout", null, "Admin paneldan chiqdi");
+  }
+
+  pb.authStore.clear();
+  adminLogs = [];
   selectRole("user");
   els.navLinks.classList.remove("open");
   closeAdminEdit();
   hideAdminLogin();
   window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+async function restoreAdminSession() {
+  if (!isAdminAuthenticated()) {
+    pb.authStore.clear();
+    selectRole("user");
+    return;
+  }
+
+  try {
+    await pb.collection("admins").authRefresh();
+    selectRole("admin");
+    await loadAdminLogs();
+  } catch (error) {
+    pb.authStore.clear();
+    adminLogs = [];
+    selectRole("user");
+  }
+}
+
+function isAdminAuthenticated() {
+  return (
+    pb.authStore.isValid &&
+    pb.authStore.record?.collectionName === "admins"
+  );
+}
+
+function requireAdminLogin() {
+  pb.authStore.clear();
+  selectRole("user");
+  showToast("Admin amalini bajarish uchun avval kiring.", "error");
+  showAdminLogin();
+}
+
+function normalizeAdminLogin(value) {
+  const login = value.trim().toLowerCase();
+  return login.includes("@") ? login : `${login}@${ADMIN_LOGIN_DOMAIN}`;
+}
+
+function getAdminLoginLock() {
+  try {
+    return JSON.parse(localStorage.getItem(ADMIN_LOGIN_LOCK_KEY)) || {
+      attempts: 0,
+      lockedUntil: 0,
+    };
+  } catch (error) {
+    return { attempts: 0, lockedUntil: 0 };
+  }
+}
+
+function registerFailedAdminLogin() {
+  const current = getAdminLoginLock();
+  const nextAttempts =
+    current.lockedUntil > Date.now() ? current.attempts : current.attempts + 1;
+  const nextLock = {
+    attempts: nextAttempts,
+    lockedUntil:
+      nextAttempts >= ADMIN_LOGIN_MAX_ATTEMPTS
+        ? Date.now() + ADMIN_LOGIN_LOCK_MS
+        : 0,
+  };
+
+  localStorage.setItem(ADMIN_LOGIN_LOCK_KEY, JSON.stringify(nextLock));
+  return nextLock;
+}
+
+function clearAdminLoginLock() {
+  localStorage.removeItem(ADMIN_LOGIN_LOCK_KEY);
+}
+
+function getAdminLockMessage(lockedUntil) {
+  const minutes = Math.ceil((lockedUntil - Date.now()) / 60000);
+  return `Juda ko'p noto'g'ri urinish. ${minutes} daqiqadan keyin qayta urinib ko'ring.`;
 }
 
 function updateActiveMenu(forcedHash) {
@@ -1118,6 +1260,9 @@ function updateThemeIcon() {
 async function refreshQueues() {
   try {
     queues = completeExpiredQueues(await loadQueues(), true);
+    if (isAdminAuthenticated()) {
+      await loadAdminLogs();
+    }
   } catch (error) {
     showToast(getStorageError(error), "error");
   }
@@ -1163,6 +1308,45 @@ async function removeQueue(id) {
   await pb.collection("queues").delete(id);
 }
 
+async function loadAdminLogs() {
+  if (!isAdminAuthenticated()) {
+    adminLogs = [];
+    return;
+  }
+
+  const response = await pb.collection("admin_logs").getList(1, 100, {
+    sort: "-created",
+  });
+
+  adminLogs = Array.isArray(response.items) ? response.items : [];
+}
+
+async function logAdminAction(action, queue, note = "") {
+  if (!isAdminAuthenticated()) return;
+
+  const adminEmail = pb.authStore.record?.email || "admin";
+  const queueTitle = queue
+    ? `${queue.firstName || ""} ${queue.lastName || ""}`.trim()
+    : "";
+
+  try {
+    const created = await pb.collection("admin_logs").create({
+      action,
+      adminId: pb.authStore.record?.id || "",
+      adminEmail,
+      queueId: queue?.id || "",
+      queueTitle,
+      note,
+      createdAt: new Date().toISOString(),
+    });
+
+    adminLogs = [created, ...adminLogs].slice(0, 100);
+    renderAdminAudit();
+  } catch (error) {
+    showToast("Admin amal tarixi saqlanmadi.", "warning");
+  }
+}
+
 function completeExpiredQueue(item) {
   if (item.status === "active" && isQueueTimePassed(item)) {
     return { ...item, status: "done" };
@@ -1175,7 +1359,7 @@ function completeExpiredQueues(items, shouldSave = false) {
   const updated = items.map(completeExpiredQueue);
   const hasChanges = updated.some((item, index) => item !== items[index]);
 
-  if (hasChanges && shouldSave) {
+  if (hasChanges && shouldSave && isAdminAuthenticated()) {
     updated.forEach((item) => {
       const original = items.find((queue) => queue.id === item.id);
 
@@ -1191,6 +1375,8 @@ function completeExpiredQueues(items, shouldSave = false) {
 }
 
 function syncExpiredQueues() {
+  if (!isAdminAuthenticated()) return;
+
   const updated = completeExpiredQueues(queues);
   const hasChanges = updated.some((item, index) => item !== queues[index]);
 
@@ -1522,6 +1708,8 @@ function roundRect(ctx, x, y, width, height, radius) {
 }
 
 function formatDate(value) {
+  if (!value) return "-";
+
   const [year, month, day] = value.split("-");
   const monthInitials = [
     "Y",
@@ -1539,6 +1727,18 @@ function formatDate(value) {
   ];
   const monthInitial = monthInitials[Number(month) - 1] || "";
   return `${year},${monthInitial}${month}.${day}`;
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "-";
+
+  return `${toDateInput(date)} ${date.toLocaleTimeString("uz-UZ", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })}`;
 }
 
 function formatReminderDay(value, now = new Date()) {

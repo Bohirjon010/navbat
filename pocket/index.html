@@ -48,6 +48,7 @@
           <a class="admin-nav-link" href="#adminHome">Boshqaruv</a>
           <a class="admin-nav-link" href="#adminQueues">Navbatlar</a>
           <a class="admin-nav-link" href="#adminHistory">Tarix</a>
+          <a class="admin-nav-link" href="#adminAudit">Amallar</a>
         </div>
 
         <div class="nav-actions">
@@ -82,6 +83,19 @@
         </div>
       </nav>
     </header>
+
+    <div class="queue-reminder-bar" id="queueReminderBar" hidden>
+      <div class="queue-reminder-inner">
+        <span class="queue-reminder-icon">
+          <i data-lucide="bell-ring"></i>
+        </span>
+        <div class="queue-reminder-copy">
+          <span>Navbat eslatmasi</span>
+          <strong id="queueReminderText"></strong>
+        </div>
+        <span class="queue-reminder-time" id="queueReminderTime"></span>
+      </div>
+    </div>
 
     <main id="userApp">
       <section class="hero section" id="home">
@@ -244,7 +258,7 @@
             <input
               id="queueSearch"
               type="search"
-              placeholder="Ism, telefon yoki lokatsiya..."
+              placeholder="Ism, lokatsiya yoki izoh..."
             />
           </label>
           <div class="filters" aria-label="Navbat filterlari">
@@ -373,6 +387,49 @@
             <i data-lucide="x-circle"></i>
             <span>Bekor qilingan</span>
             <strong id="cancelledCount">0</strong>
+          </article>
+        </div>
+        <div class="admin-analytics">
+          <article class="analytics-card glass">
+            <div class="analytics-card-head">
+              <div>
+                <span>Haftalik statistika</span>
+                <strong id="weeklyCount">0</strong>
+              </div>
+              <i data-lucide="calendar-range"></i>
+            </div>
+            <p>Oxirgi 7 kun ichidagi navbatlar</p>
+          </article>
+          <article class="analytics-card glass">
+            <div class="analytics-card-head">
+              <div>
+                <span>Oylik statistika</span>
+                <strong id="monthlyCount">0</strong>
+              </div>
+              <i data-lucide="calendar-days"></i>
+            </div>
+            <p>Joriy oy ichidagi navbatlar</p>
+          </article>
+          <article class="chart-card glass">
+            <div class="chart-heading">
+              <div>
+                <span>Haftalik grafik</span>
+                <strong>Kunlar bo'yicha</strong>
+              </div>
+              <i data-lucide="bar-chart-3"></i>
+            </div>
+            <canvas id="weeklyChart" aria-label="Haftalik navbat grafigi"></canvas>
+          </article>
+          <article class="chart-card glass">
+            <div class="chart-heading">
+              <div>
+                <span>Oylik grafik</span>
+                <strong>Holatlar bo'yicha</strong>
+              </div>
+              <i data-lucide="pie-chart"></i>
+            </div>
+            <canvas id="monthlyChart" aria-label="Oylik holatlar grafigi"></canvas>
+            <div class="chart-legend" id="monthlyChartLegend"></div>
           </article>
         </div>
       </section>
@@ -504,6 +561,32 @@
               </tr>
             </thead>
             <tbody id="adminHistoryBody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section
+        class="section"
+        id="adminAudit"
+        aria-labelledby="adminAuditTitle"
+      >
+        <div class="section-heading reveal visible">
+          <p class="eyebrow">Xavfsizlik tarixi</p>
+          <h2 id="adminAuditTitle">Admin amallari</h2>
+        </div>
+        <div class="history-table glass reveal visible">
+          <table>
+            <thead>
+              <tr>
+                <th>Vaqt</th>
+                <th>Admin</th>
+                <th>Amal</th>
+                <th>Navbat</th>
+                <th>Navbat ID</th>
+                <th>Izoh</th>
+              </tr>
+            </thead>
+            <tbody id="adminAuditBody"></tbody>
           </table>
         </div>
       </section>
